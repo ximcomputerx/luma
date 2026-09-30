@@ -1,0 +1,41 @@
+{
+  "render_gen": 1,
+  "mode": "full",
+  "blocks": [
+    {
+      "id": 1,
+      "source_line": 1,
+      "end_line": 1,
+      "body": {
+        "type": "bullet_list",
+        "items": [
+          {
+            "id": 2,
+            "source_line": 1,
+            "end_line": 1,
+            "body": {
+              "type": "list_item",
+              "checked": true,
+              "blocks": [
+                {
+                  "id": 3,
+                  "source_line": 1,
+                  "end_line": 1,
+                  "body": {
+                    "type": "paragraph",
+                    "inlines": [
+                      {
+                        "type": "text",
+                        "text": "done"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

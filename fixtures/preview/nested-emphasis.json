@@ -1,0 +1,30 @@
+{
+  "render_gen": 1,
+  "mode": "full",
+  "blocks": [
+    {
+      "id": 1,
+      "source_line": 1,
+      "end_line": 1,
+      "body": {
+        "type": "paragraph",
+        "inlines": [
+          {
+            "type": "strong",
+            "children": [
+              {
+                "type": "emphasis",
+                "children": [
+                  {
+                    "type": "text",
+                    "text": "x"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

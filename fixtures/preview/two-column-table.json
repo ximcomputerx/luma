@@ -1,0 +1,66 @@
+{
+  "render_gen": 1,
+  "mode": "full",
+  "blocks": [
+    {
+      "id": 1,
+      "source_line": 1,
+      "end_line": 3,
+      "body": {
+        "type": "table",
+        "alignments": [
+          "left",
+          "right"
+        ],
+        "rows": [
+          {
+            "header": true,
+            "cells": [
+              {
+                "align": "left",
+                "inlines": [
+                  {
+                    "type": "text",
+                    "text": "a"
+                  }
+                ]
+              },
+              {
+                "align": "right",
+                "inlines": [
+                  {
+                    "type": "text",
+                    "text": "b"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "header": false,
+            "cells": [
+              {
+                "align": "left",
+                "inlines": [
+                  {
+                    "type": "text",
+                    "text": "1"
+                  }
+                ]
+              },
+              {
+                "align": "right",
+                "inlines": [
+                  {
+                    "type": "text",
+                    "text": "2"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

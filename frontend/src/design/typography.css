@@ -1,0 +1,13 @@
+:root {
+  --luma-font-ui: system-ui, "Segoe UI Variable", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  --luma-font-prose: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif CJK SC", serif;
+  --luma-font-code: "Cascadia Code", "Sarasa Gothic SC", ui-monospace, monospace;
+  --luma-chrome-size: 13px;
+  --luma-prose-size: 16px;
+
+  --font-ui: var(--luma-font-ui);
+  --font-prose: var(--luma-font-prose);
+  --font-code: var(--luma-font-code);
+  --chrome-size: var(--luma-chrome-size);
+  --prose-size: var(--luma-prose-size);
+}

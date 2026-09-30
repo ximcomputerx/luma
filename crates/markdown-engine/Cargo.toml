@@ -1,0 +1,15 @@
+[package]
+name = "markdown-engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+pulldown-cmark = { version = "=0.13.4", default-features = false }
+rustmark-core = { path = "../rustmark-core" }
+
+[[bin]]
+name = "bench_parse"
+path = "src/bin/bench_parse.rs"

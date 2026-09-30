@@ -1,0 +1,32 @@
+[package]
+name = "luma"
+version.workspace = true
+description = "Luma desktop shell"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "luma_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.0", features = [] }
+
+[dependencies]
+markdown-render = { path = "../crates/markdown-render" }
+rustmark-core = { path = "../crates/rustmark-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "=2.12.0", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["fmt"] }
+url = "2"
+uuid = { version = "1.26.1", features = ["serde", "v4"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_SystemInformation"] }

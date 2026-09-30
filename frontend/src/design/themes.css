@@ -1,0 +1,48 @@
+:root {
+  color-scheme: light;
+  --luma-shadow-panel: none;
+  --luma-shadow-dropdown:
+    0 2px 8px color-mix(in srgb, #000 14%, transparent),
+    0 0 1px color-mix(in srgb, #000 10%, transparent);
+  --luma-shadow-dialog:
+    0 8px 24px color-mix(in srgb, #000 22%, transparent),
+    0 0 1px color-mix(in srgb, #000 16%, transparent);
+  --shadow-panel: var(--luma-shadow-panel);
+  --shadow-dropdown: var(--luma-shadow-dropdown);
+  --shadow-dialog: var(--luma-shadow-dialog);
+  --luma-motion-fast: 120ms;
+  --luma-motion-normal: 200ms;
+  --luma-motion-slow: 300ms;
+  --motion-fast: var(--luma-motion-fast);
+  --motion-normal: var(--luma-motion-normal);
+  --motion-slow: var(--luma-motion-slow);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-family="dark"] {
+  color-scheme: dark;
+  --luma-shadow-dropdown:
+    0 2px 8px color-mix(in srgb, #000 20%, transparent),
+    0 0 1px color-mix(in srgb, #000 14%, transparent);
+  --luma-shadow-dialog:
+    0 8px 24px color-mix(in srgb, #000 31%, transparent),
+    0 0 1px color-mix(in srgb, #000 22%, transparent);
+}
+
+:root[data-glass="on"] {
+  --bg-app: color-mix(in srgb, var(--bg-solid) 78%, transparent);
+}
+
+:root[data-motion="reduce"] {
+  --luma-motion-fast: 0ms;
+  --luma-motion-normal: 0ms;
+  --luma-motion-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="system"] {
+    --luma-motion-fast: 0ms;
+    --luma-motion-normal: 0ms;
+    --luma-motion-slow: 0ms;
+  }
+}

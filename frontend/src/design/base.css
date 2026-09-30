@@ -1,0 +1,29 @@
+/* Unlayered resets would beat Tailwind utilities. Form controls stay in the base layer. */
+@layer base {
+  button,
+  input,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+}

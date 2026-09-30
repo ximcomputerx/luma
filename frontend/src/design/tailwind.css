@@ -1,0 +1,27 @@
+/* Preflight stays off so Tailwind cannot reset CodeMirror, buttons, or headings. */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme {
+  /* Root chrome is 13px, so a rem spacing scale would shrink 28px controls. */
+  --spacing: 4px;
+
+  --color-luma-background: var(--luma-background);
+  --color-luma-sidebar: var(--luma-sidebar);
+  --color-luma-editor: var(--luma-editor);
+  --color-luma-paper: var(--luma-preview-paper);
+  --color-luma-elevated: var(--luma-elevated);
+  --color-luma-border: var(--luma-border);
+  --color-luma-foreground: var(--luma-text-primary);
+  --color-luma-muted: var(--luma-text-secondary);
+  --color-luma-heading: var(--luma-text-heading);
+  --color-luma-accent: var(--luma-accent);
+  --color-luma-danger: var(--luma-danger);
+  --color-luma-link: var(--luma-link);
+
+  --radius-luma-control: var(--luma-radius-control);
+  --radius-luma-overlay: var(--luma-radius-overlay);
+  --radius-luma-dialog: var(--luma-radius-dialog);
+}

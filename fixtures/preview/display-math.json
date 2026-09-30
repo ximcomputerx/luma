@@ -1,0 +1,15 @@
+{
+  "render_gen": 1,
+  "mode": "full",
+  "blocks": [
+    {
+      "id": 2,
+      "source_line": 1,
+      "end_line": 1,
+      "body": {
+        "type": "math_display",
+        "tex": "e=mc^2"
+      }
+    }
+  ]
+}

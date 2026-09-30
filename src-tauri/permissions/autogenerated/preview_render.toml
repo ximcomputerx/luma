@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-preview-render"
+description = "Enables the preview_render command without any pre-configured scope."
+commands.allow = ["preview_render"]
+
+[[permission]]
+identifier = "deny-preview-render"
+description = "Denies the preview_render command without any pre-configured scope."
+commands.deny = ["preview_render"]

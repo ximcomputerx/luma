@@ -1,0 +1,16 @@
+{
+  "render_gen": 1,
+  "mode": "full",
+  "blocks": [
+    {
+      "id": 1,
+      "source_line": 1,
+      "end_line": 4,
+      "body": {
+        "type": "diagram",
+        "engine": "mermaid",
+        "source": "graph TD\n  A-->B\n"
+      }
+    }
+  ]
+}

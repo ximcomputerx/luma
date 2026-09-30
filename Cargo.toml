@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = [
+    "src-tauri",
+    "crates/rustmark-core",
+    "crates/markdown-engine",
+    "crates/markdown-render",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+publish = false
+license = "UNLICENSED"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "unwind"
+strip = true

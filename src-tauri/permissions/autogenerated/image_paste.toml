@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-image-paste"
+description = "Enables the image_paste command without any pre-configured scope."
+commands.allow = ["image_paste"]
+
+[[permission]]
+identifier = "deny-image-paste"
+description = "Denies the image_paste command without any pre-configured scope."
+commands.deny = ["image_paste"]

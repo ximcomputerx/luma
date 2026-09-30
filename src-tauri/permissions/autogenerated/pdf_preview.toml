@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pdf-preview"
+description = "Enables the pdf_preview command without any pre-configured scope."
+commands.allow = ["pdf_preview"]
+
+[[permission]]
+identifier = "deny-pdf-preview"
+description = "Denies the pdf_preview command without any pre-configured scope."
+commands.deny = ["pdf_preview"]

@@ -1,0 +1,102 @@
+:root[data-family="dark"] .luma-btn[data-variant="primary"]:hover {
+  background: color-mix(in srgb, var(--luma-accent) 92%, white);
+}
+
+.luma-btn:disabled:hover {
+  background: transparent;
+}
+
+.luma-dialog {
+  background: var(--luma-elevated);
+  border: 1px solid var(--luma-border);
+  border-radius: var(--luma-radius-dialog);
+  box-shadow: var(--shadow-dialog);
+  color: var(--luma-text-primary);
+  animation: surface-in var(--motion-normal) var(--ease);
+}
+
+.luma-dialog:focus {
+  outline: none;
+}
+
+.luma-dialog [data-dialog-drag] {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.luma-dialog [data-dialog-drag] :is(button, input, select, textarea, a, label) {
+  cursor: pointer;
+  user-select: auto;
+  touch-action: auto;
+}
+
+.luma-dialog-plain {
+  width: min(440px, calc(100% - 32px));
+  padding: var(--luma-space-4);
+}
+
+.luma-menu {
+  z-index: 30;
+  min-width: 220px;
+  padding: var(--luma-space-1);
+  background: var(--luma-elevated);
+  border: 1px solid var(--luma-border);
+  border-radius: var(--luma-radius-overlay);
+  box-shadow: var(--shadow-dropdown);
+  color: var(--luma-text-primary);
+}
+
+.luma-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--luma-space-3);
+  height: 28px;
+  padding: 0 var(--luma-space-2);
+  border-radius: var(--luma-radius-control);
+  color: var(--luma-text-primary);
+  cursor: pointer;
+  outline: none;
+}
+
+.luma-menu-item[data-highlighted] {
+  background: color-mix(in srgb, var(--luma-text-primary) 6%, transparent);
+}
+
+.luma-menu-kbd {
+  color: var(--luma-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.luma-tooltip {
+  z-index: 50;
+  border: 1px solid var(--luma-border);
+  background: var(--luma-elevated);
+  color: var(--luma-text-primary);
+  border-radius: var(--luma-radius-control);
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: var(--shadow-dropdown);
+}
+
+.luma-scroll {
+  position: relative;
+  overflow: hidden;
+}
+
+.luma-scroll-bar {
+  display: flex;
+  width: 6px;
+  padding: 1px;
+  touch-action: none;
+}
+
+.luma-scroll-thumb {
+  position: relative;
+  flex: 1;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--luma-text-secondary) 40%, transparent);
+}

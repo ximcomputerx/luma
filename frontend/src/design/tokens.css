@@ -1,0 +1,75 @@
+:root {
+  --luma-background: #f3f0e8;
+  --luma-sidebar: #ebe6dc;
+  --luma-editor: #f7f3eb;
+  --luma-preview-paper: #fbf6ee;
+  --luma-elevated: #fffdf8;
+  --luma-border: #e4d9c8;
+  --luma-text-primary: #2c2822;
+  --luma-text-heading: #1f1c17;
+  --luma-text-secondary: #8a8174;
+  --luma-link: #2f5d50;
+  --luma-accent: #2f5d50;
+  --luma-accent-foreground: #ffffff;
+  --luma-danger: #9c3b32;
+  --luma-dirty: #a8843d;
+  --luma-code: #f3ece2;
+  --luma-selection: #d5e6df;
+
+  --luma-measure: 40rem;
+  --luma-line: 1.75;
+
+  --luma-space-1: 4px;
+  --luma-space-2: 12px;
+  --luma-space-3: 12px;
+  --luma-space-4: 16px;
+  --luma-space-5: 24px;
+  --luma-space-6: 32px;
+  --luma-space-7: 48px;
+
+  /* Hold the current chrome radii until the visual pass replaces them. */
+  --luma-radius-control: 20px;
+  --luma-radius-overlay: 20px;
+  --luma-radius-dialog: 20px;
+
+  --bg-solid: var(--luma-background);
+  --bg-sidebar-solid: var(--luma-sidebar);
+  --bg-editor: var(--luma-editor);
+  --bg-preview: var(--luma-preview-paper);
+  --bg-elevated: var(--luma-elevated);
+  --fg: var(--luma-text-primary);
+  --fg-heading: var(--luma-text-heading);
+  --fg-muted: var(--luma-text-secondary);
+  --link: var(--luma-link);
+  --border: var(--luma-border);
+  --accent: var(--luma-accent);
+  --accent-fg: var(--luma-accent-foreground);
+  --danger: var(--luma-danger);
+  --dirty: var(--luma-dirty);
+  --code-bg: var(--luma-code);
+  --selection: var(--luma-selection);
+  --measure: var(--luma-measure);
+  --line: var(--luma-line);
+
+  --bg-app: var(--luma-background);
+  --bg-sidebar: var(--luma-sidebar);
+  --bg: var(--bg-app);
+  --text-primary: var(--luma-text-primary);
+  --text-secondary: var(--luma-text-secondary);
+  --text-disabled: color-mix(in srgb, var(--text-secondary) 55%, var(--bg-app));
+  --border-default: var(--luma-border);
+  --border-subtle: color-mix(in srgb, var(--border-default) 45%, transparent);
+  --border-hover: color-mix(in srgb, var(--border-default) 70%, var(--text-primary));
+  --border-strong: var(--luma-accent);
+
+  --space-1: var(--luma-space-1);
+  --space-2: var(--luma-space-2);
+  --space-3: var(--luma-space-3);
+  --space-4: var(--luma-space-4);
+  --space-5: var(--luma-space-5);
+  --space-6: var(--luma-space-6);
+  --space-7: var(--luma-space-7);
+  --radius-sm: var(--luma-radius-control);
+  --radius-md: var(--luma-radius-overlay);
+  --radius-lg: var(--luma-radius-dialog);
+}
