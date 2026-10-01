@@ -58,7 +58,7 @@
   --text-secondary: var(--luma-text-secondary);
   --text-disabled: color-mix(in srgb, var(--text-secondary) 55%, var(--bg-app));
   --border-default: var(--luma-border);
-  --border-subtle: color-mix(in srgb, var(--border-default) 45%, transparent);
+  --border-subtle: color-mix(in srgb, var(--border-default) 70%, transparent);
   --border-hover: color-mix(in srgb, var(--border-default) 70%, var(--text-primary));
   --border-strong: var(--luma-accent);
 
