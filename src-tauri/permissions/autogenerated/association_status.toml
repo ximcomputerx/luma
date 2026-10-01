@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-association-status"
+description = "Enables the association_status command without any pre-configured scope."
+commands.allow = ["association_status"]
+
+[[permission]]
+identifier = "deny-association-status"
+description = "Denies the association_status command without any pre-configured scope."
+commands.deny = ["association_status"]

@@ -8,12 +8,10 @@ use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use uuid::Uuid;
 
-use crate::error::{
-    canceled, command_error, conflict, io_failed, missing, not_utf8, outside_jail, too_large,
-    CommandError,
-};
-use crate::io_docs::{read_note, write_note, ReadFailure};
+use crate::error::{canceled, command_error, conflict, io_failed, outside_jail, CommandError};
+use crate::io_docs::write_note;
 use crate::logging::{file_label, log_command};
+use crate::open_request::{self, MARKDOWN_EXTENSIONS};
 use crate::settings_store::persist_settings;
 use crate::state::{
     self, close_document, rebind, snapshot, AppState, CloseEffect, CloseResponse, EmptyWorkspace,
@@ -129,109 +127,59 @@ pub async fn document_open(
         Some(path) => PathBuf::from(path),
         None => pick_markdown(&app, "打开文件", None)?,
     };
-    let opened = match read_note(&chosen) {
-        Ok(opened) => opened,
-        Err(ReadFailure::Missing) => {
+    let prepared = match open_request::prepare_open(&chosen) {
+        Ok(prepared) => prepared,
+        Err(error) => {
             log_command(
                 "document_open",
                 started,
                 0,
                 0,
-                "io",
+                &error.code,
                 &file_label(Some(&chosen)),
             );
-            return Err(missing());
-        }
-        Err(ReadFailure::NotUtf8) => {
-            log_command(
-                "document_open",
-                started,
-                0,
-                0,
-                "not_utf8",
-                &file_label(Some(&chosen)),
-            );
-            return Err(not_utf8());
-        }
-        Err(ReadFailure::TooLarge) => {
-            log_command(
-                "document_open",
-                started,
-                0,
-                0,
-                "too_large",
-                &file_label(Some(&chosen)),
-            );
-            return Err(too_large());
-        }
-        Err(ReadFailure::Io) => {
-            log_command(
-                "document_open",
-                started,
-                0,
-                0,
-                "io",
-                &file_label(Some(&chosen)),
-            );
-            return Err(io_failed());
+            return Err(error);
         }
     };
-    let bytes = opened.markdown_lf.len() as u64;
     let mut session = state::lock(&state);
-    let mut trial = session.jail.clone();
-    let canonical = match trial.open_document(&chosen) {
-        Ok(path) => path,
-        Err(JailError::Outside) | Err(JailError::NoRoot) => return Err(outside_jail()),
-        Err(JailError::Io) => return Err(io_failed()),
+    let opened = match open_request::commit_open(&mut session, prepared) {
+        Ok(opened) => opened,
+        Err(error) => {
+            log_command(
+                "document_open",
+                started,
+                0,
+                0,
+                &error.code,
+                &file_label(Some(&chosen)),
+            );
+            return Err(error);
+        }
     };
-    if let Some(index) = session
-        .documents
-        .iter()
-        .position(|document| document.path.as_ref() == Some(&canonical))
-    {
-        session.active = session.documents[index].id;
-        let response = snapshot(&session);
-        log_command(
-            "document_open",
-            started,
-            bytes,
-            response.document.rev,
-            "ok",
-            &file_label(Some(&canonical)),
-        );
-        return Ok(response);
-    }
-    if session.documents.len() >= TAB_LIMIT {
-        return Err(command_error("io", "打开的标签太多。"));
-    }
-    session.jail = trial;
-    let opened_document = DocumentSession::opened(
-        canonical.clone(),
-        opened.markdown_lf,
-        opened.newline,
-        Some(opened.mtime),
-    );
-    session.active = opened_document.id;
-    session.documents.push(opened_document);
-    rebind(&mut session);
-    let shown = canonical.to_string_lossy().into_owned();
-    remember_recent(&mut session.settings, &shown, now_ms());
     let settings = session.settings.clone();
-    let frozen = state
-        .settings_frozen
-        .load(std::sync::atomic::Ordering::SeqCst);
-    let response = snapshot(&session);
-    let rev = response.document.rev;
+    let bytes = opened.snapshot.document.markdown_lf.len() as u64;
+    let rev = opened.snapshot.document.rev;
+    let label = opened
+        .snapshot
+        .document
+        .path
+        .clone()
+        .unwrap_or_else(|| chosen.to_string_lossy().into_owned());
     drop(session);
-    if let Err(error) = persist_settings(&app, &settings, frozen) {
-        log_command(
-            "document_open",
-            started,
-            bytes,
-            rev,
-            &error.code,
-            &file_label(Some(&canonical)),
-        );
+    if opened.wrote_recent {
+        let frozen = state
+            .settings_frozen
+            .load(std::sync::atomic::Ordering::SeqCst);
+        if let Err(error) = persist_settings(&app, &settings, frozen) {
+            log_command(
+                "document_open",
+                started,
+                bytes,
+                rev,
+                &error.code,
+                &file_label(Some(Path::new(&label))),
+            );
+        }
     }
     log_command(
         "document_open",
@@ -239,9 +187,68 @@ pub async fn document_open(
         bytes,
         rev,
         "ok",
-        &file_label(Some(&canonical)),
+        &file_label(Some(Path::new(&label))),
     );
-    Ok(response)
+    Ok(opened.snapshot)
+}
+
+#[derive(serde::Serialize)]
+pub struct FlushResponse {
+    pub snapshots: Vec<SnapshotResponse>,
+    pub errors: Vec<CommandError>,
+}
+
+#[tauri::command]
+pub async fn flush_open_queue(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    boot: bool,
+) -> Result<FlushResponse, CommandError> {
+    let started = Instant::now();
+    let _gate = open_request::lock_flush();
+    let (initializer, paths) = open_request::claim_launch();
+    let prepared: Vec<_> = paths
+        .iter()
+        .map(|path| open_request::prepare_open(path))
+        .collect();
+    let mut session = state::lock(&state);
+    let fresh = open_request::commit_all(&mut session, prepared, initializer);
+    let settings = session.settings.clone();
+    let wrote = fresh.wrote_recent;
+    let returned = open_request::complete_launch(initializer, boot, fresh);
+    drop(session);
+    if wrote {
+        let frozen = state
+            .settings_frozen
+            .load(std::sync::atomic::Ordering::SeqCst);
+        if let Err(error) = persist_settings(&app, &settings, frozen) {
+            log_command(
+                "flush_open_queue",
+                started,
+                0,
+                0,
+                &error.code,
+                "settings.json",
+            );
+        }
+    }
+    let code = returned
+        .errors
+        .first()
+        .map(|error| error.code.as_str())
+        .unwrap_or("ok");
+    log_command(
+        "flush_open_queue",
+        started,
+        returned.snapshots.len() as u64,
+        0,
+        code,
+        "-",
+    );
+    Ok(FlushResponse {
+        snapshots: returned.snapshots,
+        errors: returned.errors,
+    })
 }
 
 #[tauri::command]
@@ -423,7 +430,7 @@ fn pick_markdown(
     let mut builder = app
         .dialog()
         .file()
-        .add_filter("Markdown", &["md", "markdown"])
+        .add_filter("Markdown", MARKDOWN_EXTENSIONS)
         .set_title(title);
     if let Some(file_name) = file_name {
         builder = builder.set_file_name(file_name);

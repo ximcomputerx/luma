@@ -54,6 +54,7 @@ export type Settings = {
     mermaid: boolean;
     remote_images: boolean;
   };
+  association_prompted: boolean;
   glass_active: boolean;
   settings_frozen: boolean;
 };

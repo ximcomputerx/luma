@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CommandError {
     pub code: String,
     pub message: String,
@@ -33,8 +33,12 @@ pub fn io_failed() -> CommandError {
     command_error("io", "无法完成文件操作。")
 }
 
-pub fn missing() -> CommandError {
-    command_error("io", "找不到文件")
+pub fn rejected() -> CommandError {
+    command_error("rejected", "无法打开此文件")
+}
+
+pub fn association_failed() -> CommandError {
+    command_error("io", "无法更改文件关联")
 }
 
 pub fn conflict() -> CommandError {

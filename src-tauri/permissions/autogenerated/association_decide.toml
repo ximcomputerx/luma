@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-association-decide"
+description = "Enables the association_decide command without any pre-configured scope."
+commands.allow = ["association_decide"]
+
+[[permission]]
+identifier = "deny-association-decide"
+description = "Denies the association_decide command without any pre-configured scope."
+commands.deny = ["association_decide"]

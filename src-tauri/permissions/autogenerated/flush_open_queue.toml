@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-flush-open-queue"
+description = "Enables the flush_open_queue command without any pre-configured scope."
+commands.allow = ["flush_open_queue"]
+
+[[permission]]
+identifier = "deny-flush-open-queue"
+description = "Denies the flush_open_queue command without any pre-configured scope."
+commands.deny = ["flush_open_queue"]

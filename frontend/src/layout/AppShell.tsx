@@ -1,5 +1,6 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useRef, useState } from "react";
 import { countWords } from "../editor/count";
@@ -9,6 +10,8 @@ import { runFind } from "../editor/find";
 import { applyCode, applyHeading, applyList, applyQuote, insertTableColumn, insertTableRow, tableAt, wrapSelection, type TableHit } from "../editor/format";
 import { presentError, t, useLocale, useT } from "../i18n";
 import {
+  associationDecide,
+  associationStatus,
   closeDecision,
   diagnosticsExport,
   documentAutosave,
@@ -19,12 +22,23 @@ import {
   documentOpen,
   documentSave,
   exportHtml,
+  flushOpenQueue,
   folderList,
   folderOpen,
+  folderOpenPath,
   imagePaste,
   previewRender,
   settingsGet,
   settingsSet,
+  updateArm,
+  updateCheck,
+  updateDownload,
+  updateInstall,
+  updateLater,
+  updatePolicy,
+  updateState,
+  type AssociationState,
+  type UpdateSnapshot,
 } from "../ipc/commands";
 import { readCommandError, type DocumentSnapshot, type Settings as SettingsModel, type SettingsPatch, type TreeEntry, type ViewMode } from "../ipc/types";
 import { CommandPalette, type PaletteCommand } from "../palette/CommandPalette";
@@ -41,10 +55,13 @@ import { StatusBar } from "../components/luma/StatusBar";
 import { TabBar } from "../components/luma/TabBar";
 import { Toolbar } from "../components/luma/Toolbar";
 import { TooltipProvider } from "../components/ui/tooltip";
+import { DefaultEditorDialog } from "./DefaultEditorDialog";
+import { UpdateCard } from "./UpdateCard";
 import { DirtyDialog, type DirtyChoice } from "./DirtyDialog";
 import { hasUnsavedChanges } from "./documentState";
 import { headingAtLine, outlineEntries, type OutlineEntry } from "./outline";
 import { TableHandles } from "./TableHandles";
+import { isMarkdownPath } from "./markdownPath";
 import { displayTitle, mergeWorkspace, tabFromSnapshot, type OpenTab } from "./workspace";
 import {
   flattenPreview,
@@ -66,6 +83,7 @@ const defaultSettings: SettingsModel = {
   reduced_motion: "system",
   recent_files: [],
   preview: { math: true, mermaid: true, remote_images: false },
+  association_prompted: false,
   glass_active: false,
   settings_frozen: false,
 };
@@ -136,6 +154,14 @@ export function AppShell() {
   const [dirtyMany, setDirtyMany] = useState(false);
   const [writing, setWriting] = useState<WritingPrefs>(bootWriting);
   const [booted, setBooted] = useState(false);
+  const [association, setAssociation] = useState<AssociationState>("unregistered");
+  const [askAssociation, setAskAssociation] = useState(false);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [update, setUpdate] = useState<UpdateSnapshot | null>(null);
+  const [updateNotice, setUpdateNotice] = useState("");
+  const autoInstall = useRef<string | null>(null);
+  const installingUpdate = useRef(false);
+  const [associationBusy, setAssociationBusy] = useState(false);
   const hadStored = useRef(loadWriting() !== null);
   const settingsRef = useRef(settings);
   const docRef = useRef(doc);
@@ -466,22 +492,25 @@ export function AppShell() {
     return result.status === "saved";
   }
 
-  async function openPath(path: string | null) {
+  async function applyOpened(snapshot: DocumentSnapshot) {
     const blankId = docRef.current.id && !docRef.current.path && docRef.current.buffer.length === 0 ? docRef.current.id : null;
-    try {
-      const snapshot = await documentOpen(path);
-      const known = tabsRef.current.some((tab) => tab.id === snapshot.document_id && tab.id !== blankId);
-      install(snapshot, !known);
-      if (blankId && blankId !== snapshot.document_id) {
-        const closed = await documentClose(blankId);
-        queues.current.delete(blankId);
-        tabsRef.current = tabsRef.current.filter((tab) => tab.id !== blankId);
-        setTabs(tabsRef.current);
-        if (!isEmptyWorkspace(closed) && closed.document_id !== docRef.current.id) {
-          const still = tabsRef.current.some((tab) => tab.id === closed.document_id);
-          install(closed, !still);
-        }
+    const known = tabsRef.current.some((tab) => tab.id === snapshot.document_id && tab.id !== blankId);
+    install(snapshot, !known);
+    if (blankId && blankId !== snapshot.document_id) {
+      const closed = await documentClose(blankId);
+      queues.current.delete(blankId);
+      tabsRef.current = tabsRef.current.filter((tab) => tab.id !== blankId);
+      setTabs(tabsRef.current);
+      if (!isEmptyWorkspace(closed) && closed.document_id !== docRef.current.id) {
+        const still = tabsRef.current.some((tab) => tab.id === closed.document_id);
+        install(closed, !still);
       }
+    }
+  }
+
+  async function openPath(path: string | null) {
+    try {
+      await applyOpened(await documentOpen(path));
       await refreshSettings();
     } catch (error) {
       const parsed = readCommandError(error);
@@ -489,6 +518,28 @@ export function AppShell() {
         setStatus(presentError(error));
       }
     }
+  }
+
+  const drainChain = useRef(Promise.resolve());
+
+  function drainQueue(boot: boolean) {
+    const run = drainChain.current.then(async () => {
+      const outcome = await flushOpenQueue(boot);
+      for (const snapshot of outcome.snapshots) {
+        await applyOpened(snapshot);
+      }
+      if (outcome.errors[0]) {
+        setStatus(presentError(outcome.errors[0]));
+      }
+      if (outcome.snapshots.some((item) => item.path)) {
+        await refreshSettings();
+      }
+    });
+    drainChain.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   async function createDocument() {
@@ -629,21 +680,48 @@ export function AppShell() {
     setActiveHeading(entry.id);
   }
 
+  function showFolder(page: { root: string; entries: TreeEntry[]; truncated: boolean }) {
+    setSideTab("files");
+    setTree({
+      root: page.root,
+      entries: { [page.root]: page.entries },
+      expanded: [],
+      truncated: { [page.root]: page.truncated },
+    });
+  }
+
   async function openFolder() {
     try {
-      const page = await folderOpen();
-      setSideTab("files");
-      setTree({
-        root: page.root,
-        entries: { [page.root]: page.entries },
-        expanded: [],
-        truncated: { [page.root]: page.truncated },
-      });
+      showFolder(await folderOpen());
     } catch (error) {
       const parsed = readCommandError(error);
       if (parsed.code !== "dialog_canceled") {
         setStatus(presentError(error));
       }
+    }
+  }
+
+  async function openFolderPath(path: string) {
+    try {
+      showFolder(await folderOpenPath(path));
+    } catch (error) {
+      const parsed = readCommandError(error);
+      if (parsed.code !== "dialog_canceled") {
+        setStatus(presentError(error));
+      }
+    }
+  }
+
+  async function acceptDrop(paths: string[]) {
+    const files = paths.filter((path) => isMarkdownPath(path));
+    if (files.length > 0) {
+      for (const path of files) {
+        await openPath(path);
+      }
+      return;
+    }
+    if (paths.length === 1) {
+      await openFolderPath(paths[0]);
     }
   }
 
@@ -740,6 +818,83 @@ export function AppShell() {
     }
   }
 
+  function acceptUpdate(next: UpdateSnapshot) {
+    setUpdate((previous) => (previous && next.revision < previous.revision ? previous : next));
+  }
+
+  async function checkForUpdate() {
+    setUpdateNotice("");
+    try {
+      const next = await updateCheck();
+      acceptUpdate(next);
+      if (!next.dev_build && next.phase === "idle" && next.available_version === "" && next.error === "") {
+        setUpdateNotice(t("update.currentOk"));
+      }
+    } catch (error) {
+      setStatus(presentError(error));
+    }
+  }
+
+  async function changeUpdatePolicy(checkOnStartup: boolean, downloadInBackground: boolean) {
+    try {
+      acceptUpdate(await updatePolicy(checkOnStartup, downloadInBackground));
+    } catch (error) {
+      setStatus(presentError(error));
+    }
+  }
+
+  async function downloadUpdate() {
+    try {
+      acceptUpdate(await updateDownload());
+    } catch (error) {
+      setStatus(presentError(error));
+    }
+  }
+
+  async function laterUpdate() {
+    try {
+      acceptUpdate(await updateLater());
+    } catch (error) {
+      setStatus(presentError(error));
+    }
+  }
+
+  async function installUpdate() {
+    if (installingUpdate.current) {
+      return;
+    }
+    installingUpdate.current = true;
+    try {
+      const dirty = dirtyTabs();
+      if (dirty.length > 0) {
+        setDirtyMany(dirty.length > 1);
+        const choice = await ask();
+        if (choice === "cancel") {
+          return;
+        }
+        if (choice === "save") {
+          for (const tab of dirty) {
+            showStored(tab.id);
+            const saved = await save(false);
+            if (!saved) {
+              return;
+            }
+          }
+        }
+      }
+      acceptUpdate(await updateInstall());
+    } catch (error) {
+      setStatus(presentError(error));
+      try {
+        acceptUpdate(await updateState());
+      } catch {
+        /* The card keeps the last snapshot. */
+      }
+    } finally {
+      installingUpdate.current = false;
+    }
+  }
+
   function applyFind(action: "next" | "replace" | "all") {
     const view = editorRef.current?.view;
     if (!view || (action !== "next" && modeRef.current === "preview")) {
@@ -752,6 +907,8 @@ export function AppShell() {
     createDocument,
     openPath,
     openFolder,
+    acceptDrop,
+    drainQueue,
     save,
     cycleMode,
     requestClose,
@@ -759,11 +916,14 @@ export function AppShell() {
     exportDocument,
     openPdf,
     pasteImage,
+    installUpdate,
   });
   actions.current = {
     createDocument,
     openPath,
     openFolder,
+    acceptDrop,
+    drainQueue,
     save,
     cycleMode,
     requestClose,
@@ -771,6 +931,7 @@ export function AppShell() {
     exportDocument,
     openPdf,
     pasteImage,
+    installUpdate,
   };
 
   useEffect(() => {
@@ -831,10 +992,12 @@ export function AppShell() {
 
   useEffect(() => {
     const token = ++bootToken.current;
+    const handle: { cancel: boolean; stop: (() => void) | null } = { cancel: false, stop: null };
     void (async () => {
+      let shown = false;
       try {
         const loaded = await settingsGet();
-        if (token !== bootToken.current) {
+        if (handle.cancel || token !== bootToken.current) {
           return;
         }
         setSettings(loaded);
@@ -845,18 +1008,116 @@ export function AppShell() {
           saveWriting(migrated);
         }
         setBooted(true);
+        shown = true;
         if (loaded.view_mode === "source" || loaded.view_mode === "preview") {
           lastSide.current = loaded.view_mode;
         }
-        const snapshot = await documentNew();
-        if (token !== bootToken.current) {
+        const stopQueue = await listen("document://queue", () => {
+          void actions.current.drainQueue(false);
+        });
+        if (handle.cancel || token !== bootToken.current) {
+          stopQueue();
           return;
         }
-        install(snapshot, true);
+        handle.stop = stopQueue;
+        let associationState: AssociationState = "unsupported";
+        try {
+          associationState = (await associationStatus()).state;
+        } catch {
+          associationState = "unsupported";
+        }
+        if (handle.cancel || token !== bootToken.current) {
+          return;
+        }
+        setAssociation(associationState);
+        await actions.current.drainQueue(true);
+        if (handle.cancel || token !== bootToken.current) {
+          return;
+        }
+        if (!loaded.settings_frozen && !loaded.association_prompted && associationState !== "unsupported") {
+          setAskAssociation(true);
+        }
+        if (!handle.cancel && token === bootToken.current) {
+          setWorkspaceReady(true);
+        }
       } catch (error) {
-        setStatus(presentError(error));
+        if (!handle.cancel && token === bootToken.current) {
+          setStatus(presentError(error));
+          if (shown) {
+            setWorkspaceReady(true);
+          }
+        }
       }
     })();
+    return () => {
+      handle.cancel = true;
+      handle.stop?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceReady || askAssociation) {
+      return;
+    }
+    let cancel = false;
+    let stop: (() => void) | null = null;
+    void (async () => {
+      try {
+        const unlisten = await listen<UpdateSnapshot>("update://state", (event) => {
+          acceptUpdate(event.payload);
+        });
+        if (cancel) {
+          unlisten();
+          return;
+        }
+        stop = unlisten;
+        acceptUpdate(await updateState());
+        if (cancel) {
+          return;
+        }
+        acceptUpdate(await updateArm());
+      } catch (error) {
+        if (!cancel) {
+          setStatus(presentError(error));
+        }
+      }
+    })();
+    return () => {
+      cancel = true;
+      stop?.();
+    };
+  }, [workspaceReady, askAssociation]);
+
+  useEffect(() => {
+    if (!update || update.phase !== "downloaded" || !update.install_when_ready) {
+      return;
+    }
+    if (autoInstall.current === update.available_version) {
+      return;
+    }
+    autoInstall.current = update.available_version;
+    void actions.current.installUpdate();
+  }, [update]);
+
+  useEffect(() => {
+    const handle: { cancel: boolean; stop: (() => void) | null } = { cancel: false, stop: null };
+    void (async () => {
+      const stop = await getCurrentWebview().onDragDropEvent((event) => {
+        if (event.payload.type !== "drop") {
+          return;
+        }
+        void actions.current.acceptDrop(event.payload.paths);
+      });
+      if (handle.cancel) {
+        stop();
+        return;
+      }
+      handle.stop = stop;
+    })();
+    return () => {
+      handle.cancel = true;
+      handle.stop?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -1076,10 +1337,35 @@ export function AppShell() {
       editorRef.current?.highlightLines(block ? block.startLine : null, block ? block.endLine : null);
     });
   };
+  async function chooseAssociation(makeDefault: boolean) {
+    if (associationBusy) {
+      return;
+    }
+    setAssociationBusy(true);
+    try {
+      const next = await associationDecide(makeDefault);
+      setAssociation(next.state);
+      if (!settingsRef.current.settings_frozen) {
+        setSettings(await settingsGet());
+      }
+      setAskAssociation(false);
+    } catch (error) {
+      setStatus(presentError(error));
+      try {
+        setAssociation((await associationStatus()).state);
+      } catch {
+        /* The status line keeps the last known state. */
+      }
+    } finally {
+      setAssociationBusy(false);
+    }
+  }
+
   const commands: PaletteCommand[] = [
     { id: "new", title: "file.new", shortcut: "shortcut.new", run: () => { setPaletteOpen(false); void createDocument(); } },
     { id: "open", title: "file.open", shortcut: "shortcut.open", run: () => { setPaletteOpen(false); void openPath(null); } },
     { id: "folder", title: "file.openFolder", shortcut: "shortcut.openFolder", run: () => { setPaletteOpen(false); void openFolder(); } },
+    ...(association === "unsupported" ? [] : [{ id: "default-editor", title: "assoc.command" as const, run: () => { setPaletteOpen(false); void chooseAssociation(true); } }]),
     { id: "save", title: "file.save", shortcut: "shortcut.save", run: () => { setPaletteOpen(false); void save(false); } },
     { id: "save-as", title: "file.saveAs", shortcut: "shortcut.saveAs", run: () => { setPaletteOpen(false); void save(true); } },
     { id: "close", title: "file.closeTab", shortcut: "shortcut.close", run: () => { setPaletteOpen(false); void closeTab(doc.id); } },
@@ -1110,7 +1396,7 @@ export function AppShell() {
 
   return (
     <TooltipProvider>
-    <div className={pendingChoice || settingsOpen || paletteOpen || pdfOpen ? "app modal-open" : "app"}>
+    <div className={pendingChoice || settingsOpen || paletteOpen || pdfOpen || askAssociation ? "app modal-open" : "app"}>
       <Toolbar
         mode={mode}
         onNew={() => void createDocument()}
@@ -1232,15 +1518,35 @@ export function AppShell() {
         }}
         onClosed={() => editorRef.current?.view.focus()}
       />
+      <UpdateCard
+        snapshot={update}
+        onLater={() => void laterUpdate()}
+        onDownload={() => void downloadUpdate()}
+        onInstall={() => void actions.current.installUpdate()}
+      />
+      <DefaultEditorDialog
+        open={askAssociation}
+        busy={associationBusy}
+        onAccept={() => void chooseAssociation(true)}
+        onLater={() => void chooseAssociation(false)}
+        onClosed={() => editorRef.current?.view.focus()}
+      />
       <Settings
         open={settingsOpen}
         settings={settings}
         writing={writing}
+        association={association}
+        associationBusy={associationBusy}
+        onMakeDefault={() => void chooseAssociation(true)}
         onPatch={(patch) => void applyPatch(patch)}
         onWriting={setWritingAndSave}
         onClose={() => setSettingsOpen(false)}
         onClosed={() => editorRef.current?.view.focus()}
         onDiagnostics={() => void diagnosticsExport().catch((error) => setStatus(presentError(error)))}
+        update={update}
+        updateNotice={updateNotice}
+        onUpdateCheck={() => void checkForUpdate()}
+        onUpdatePolicy={(checkOnStartup, downloadInBackground) => void changeUpdatePolicy(checkOnStartup, downloadInBackground)}
       />
       <PDFExportDialog
         key={doc.id || "none"}

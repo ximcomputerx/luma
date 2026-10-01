@@ -115,6 +115,9 @@ pub struct Settings {
     pub recent_files: Vec<RecentFile>,
     #[serde(default)]
     pub preview: PreviewFlags,
+    /// The first-run default-editor question has been answered.
+    #[serde(default)]
+    pub association_prompted: bool,
 }
 
 fn default_font() -> u8 {
@@ -138,6 +141,7 @@ impl Default for Settings {
             reduced_motion: MotionMode::System,
             recent_files: Vec::new(),
             preview: PreviewFlags::default(),
+            association_prompted: false,
         }
     }
 }
@@ -188,6 +192,7 @@ const TOP_KEYS: &[&str] = &[
     "reduced_motion",
     "recent_files",
     "preview",
+    "association_prompted",
 ];
 
 const PREVIEW_KEYS: &[&str] = &["math", "mermaid", "remote_images"];
@@ -353,7 +358,16 @@ mod tests {
                 assert!(!settings.preview.remote_images);
                 assert!(dropped.iter().any(|name| name == "api_key"));
                 assert!(dropped.iter().any(|name| name == "preview.token"));
+                assert!(!settings.association_prompted);
             }
+            _ => panic!("expected ready"),
+        }
+    }
+
+    #[test]
+    fn association_prompt_is_kept() {
+        match load_settings_value(&json!({ "association_prompted": true })) {
+            LoadKind::Ready { settings, .. } => assert!(settings.association_prompted),
             _ => panic!("expected ready"),
         }
     }

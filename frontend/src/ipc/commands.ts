@@ -19,6 +19,15 @@ export function documentOpen(path: string | null): Promise<DocumentSnapshot> {
   return invoke("document_open", { path });
 }
 
+export type FlushOutcome = {
+  snapshots: DocumentSnapshot[];
+  errors: Array<{ code: string; message: string }>;
+};
+
+export function flushOpenQueue(boot: boolean): Promise<FlushOutcome> {
+  return invoke("flush_open_queue", { boot });
+}
+
 export function documentSave(request: SaveRequest): Promise<SaveOutcome> {
   return invoke("document_save", { request });
 }
@@ -31,6 +40,10 @@ export function folderOpen(): Promise<FolderPayload> {
   return invoke("folder_open");
 }
 
+export function folderOpenPath(path: string): Promise<FolderPayload> {
+  return invoke("folder_open_path", { path });
+}
+
 export function folderList(dir: string): Promise<ListPayload> {
   return invoke("folder_list", { dir });
 }
@@ -41,6 +54,68 @@ export function settingsGet(): Promise<Settings> {
 
 export function settingsSet(patch: SettingsPatch): Promise<Settings> {
   return invoke("settings_set", { patch });
+}
+
+export type AssociationState = "default" | "registered" | "unregistered" | "unsupported";
+
+export function associationStatus(): Promise<{ state: AssociationState }> {
+  return invoke("association_status");
+}
+
+export function associationDecide(makeDefault: boolean): Promise<{ state: AssociationState }> {
+  return invoke("association_decide", { makeDefault });
+}
+
+export type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "update_available"
+  | "downloading"
+  | "downloaded"
+  | "installing";
+
+export type UpdateSnapshot = {
+  phase: UpdatePhase;
+  current_version: string;
+  available_version: string;
+  notes: string;
+  downloaded_bytes: number;
+  total_bytes: number;
+  check_on_startup: boolean;
+  download_in_background: boolean;
+  prompt: boolean;
+  install_when_ready: boolean;
+  error: string;
+  dev_build: boolean;
+  revision: number;
+};
+
+export function updateState(): Promise<UpdateSnapshot> {
+  return invoke("update_state");
+}
+
+export function updateArm(): Promise<UpdateSnapshot> {
+  return invoke("update_arm");
+}
+
+export function updateCheck(): Promise<UpdateSnapshot> {
+  return invoke("update_check");
+}
+
+export function updateDownload(): Promise<UpdateSnapshot> {
+  return invoke("update_download");
+}
+
+export function updateInstall(): Promise<UpdateSnapshot> {
+  return invoke("update_install");
+}
+
+export function updateLater(): Promise<UpdateSnapshot> {
+  return invoke("update_later");
+}
+
+export function updatePolicy(checkOnStartup: boolean, downloadInBackground: boolean): Promise<UpdateSnapshot> {
+  return invoke("update_policy", { checkOnStartup, downloadInBackground });
 }
 
 export function closeDecision(action: "save" | "discard" | "cancel"): Promise<void> {

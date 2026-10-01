@@ -11,6 +11,8 @@ const exact: Record<string, MessageId> = {
   "路径不在已打开的文件夹内。": "error.outsideJail",
   "无法完成文件操作。": "error.io",
   "找不到文件": "file.missing",
+  "无法打开此文件": "file.rejected",
+  "无法更改文件关联": "assoc.error",
   "保存冲突，没有写入磁盘。": "error.conflict",
   "不能把密钥写进设置。": "error.invalidSettingsSecret",
   "设置项无效。": "error.invalidSettings",
@@ -28,10 +30,15 @@ const exact: Record<string, MessageId> = {
   "只能粘贴 PNG、JPEG、GIF 或 WebP。": "error.imageType",
   "打开的标签太多。": "error.tooManyTabs",
   "无法关闭窗口。": "error.windowClose",
+  "无法检查更新": "error.updateCheck",
+  "无法验证更新": "error.updateVerify",
+  "无法下载更新": "error.updateDownload",
+  "无法安装更新": "error.updateInstall",
 };
 
 const byCode: Partial<Record<string, MessageId>> = {
   not_utf8: "file.notUtf8",
+  rejected: "file.rejected",
   outside_jail: "error.outsideJail",
   conflict: "error.conflict",
   dialog_canceled: "error.dialogCanceled",

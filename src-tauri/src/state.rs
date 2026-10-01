@@ -29,14 +29,14 @@ pub fn lock(state: &AppState) -> MutexGuard<'_, Session> {
         .unwrap_or_else(|error| error.into_inner())
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct TabSummary {
     pub document_id: Uuid,
     pub title: String,
     pub path: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct SnapshotResponse {
     #[serde(flatten)]
     pub document: rustmark_core::DocumentSnapshot,

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-update-policy"
+description = "Enables the update_policy command without any pre-configured scope."
+commands.allow = ["update_policy"]
+
+[[permission]]
+identifier = "deny-update-policy"
+description = "Denies the update_policy command without any pre-configured scope."
+commands.deny = ["update_policy"]

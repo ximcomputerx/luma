@@ -2,6 +2,7 @@ import { Icon } from "../components/ui/icon";
 import { glyphs } from "../components/luma/glyphs";
 import { t, useT } from "../i18n";
 import type { RecentFile, TreeEntry } from "../ipc/types";
+import { isMarkdownPath } from "./markdownPath";
 
 export type FilePane = "recent" | "files";
 
@@ -75,7 +76,7 @@ export function FileTree({
   );
 
   function renderLevel(dir: string, depth: number) {
-    const items = (entries[dir] ?? []).filter((item) => item.kind === "dir" || isMarkdownName(item.name));
+    const items = (entries[dir] ?? []).filter((item) => item.kind === "dir" || isMarkdownPath(item.name));
     return (
       <div>
         {depth === 0 && items.length === 0 && !truncated[dir] ? <p className="muted">{t("tree.folderClear")}</p> : null}
@@ -122,10 +123,6 @@ export function FileTree({
       </div>
     );
   }
-}
-
-function isMarkdownName(name: string): boolean {
-  return /\.(md|markdown)$/i.test(name);
 }
 
 function fileName(path: string): string {

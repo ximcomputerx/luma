@@ -75,6 +75,7 @@ describe("catalogs", () => {
     expect(presentError({ code: "too_large", message: "图片超过 8 MB。" })).toBe("Images larger than 8 MB cannot be pasted.");
     expect(presentError({ code: "too_large", message: "文件超过 8 MB，无法打开。" })).toBe("Files larger than 8 MB cannot be opened.");
     expect(presentError({ code: "not_utf8", message: "changed" })).toBe("Only UTF-8 text can be opened.");
+    expect(presentError({ code: "rejected", message: "无法打开此文件" })).toBe("This file can't be opened.");
     expect(presentError({ code: "io", message: "磁盘忙" })).toBe("磁盘忙");
     expect(presentError({ code: "invalid_settings", message: "导出设置无效。" })).toBe("Those export settings are invalid.");
     expect(presentError({ code: "invalid_settings", message: "设置项无效。" })).toBe("That setting is invalid.");

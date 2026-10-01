@@ -23,6 +23,7 @@ const settings: SettingsModel = {
   reduced_motion: "system",
   recent_files: [],
   preview: { math: true, mermaid: true, remote_images: false },
+  association_prompted: false,
   glass_active: false,
   settings_frozen: false,
 };
@@ -53,9 +54,16 @@ function render(onPatch: (patch: SettingsPatch) => void) {
       settings,
       writing: defaultWriting(),
       onPatch,
+      association: "unregistered",
+      associationBusy: false,
+      onMakeDefault: () => undefined,
       onWriting: () => undefined,
       onClose: () => undefined,
       onDiagnostics: () => undefined,
+      update: null,
+      updateNotice: "",
+      onUpdateCheck: () => undefined,
+      onUpdatePolicy: () => undefined,
     }));
   });
 }

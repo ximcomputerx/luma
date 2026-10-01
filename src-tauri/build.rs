@@ -4,9 +4,11 @@ fn main() {
             "preview_render",
             "document_new",
             "document_open",
+            "flush_open_queue",
             "document_save",
             "document_autosave",
             "folder_open",
+            "folder_open_path",
             "folder_list",
             "settings_get",
             "settings_set",
@@ -19,6 +21,15 @@ fn main() {
             "export_pdf",
             "pdf_preview",
             "fonts_list",
+            "association_status",
+            "association_decide",
+            "update_state",
+            "update_arm",
+            "update_check",
+            "update_download",
+            "update_install",
+            "update_later",
+            "update_policy",
         ]));
     tauri_build::try_build(attributes).expect("failed to run tauri-build");
 }

@@ -1,7 +1,8 @@
 import { cloneElement, isValidElement, useEffect, useId, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
-import { t, useLocale, useT, type MessageId } from "../../i18n";
+import { presentError, t, useLocale, useT, type MessageId } from "../../i18n";
+import type { AssociationState, UpdateSnapshot } from "../../ipc/commands";
 import type { RecentFile, Settings as SettingsModel, SettingsPatch } from "../../ipc/types";
 import { autosaveMs } from "../../settings/interval";
 import { loadSystemFonts } from "../../styles/systemFonts";
@@ -9,20 +10,28 @@ import { clampMeasure, sortFontNames, type WritingPrefs } from "../../styles/wri
 import { FontPicker } from "./FontPicker";
 import { ThemeSwatches } from "./ThemeSwatches";
 
-type Section = "appearance" | "save" | "edit" | "preview" | "language" | "about";
+type Section = "files" | "appearance" | "save" | "edit" | "preview" | "language" | "about";
 
 type Props = {
   open: boolean;
   settings: SettingsModel;
   writing: WritingPrefs;
+  association: AssociationState;
+  associationBusy: boolean;
+  onMakeDefault: () => void;
   onPatch: (patch: SettingsPatch) => void;
   onWriting: (next: WritingPrefs) => void;
   onClose: () => void;
   onClosed?: () => void;
   onDiagnostics: () => void;
+  update: UpdateSnapshot | null;
+  updateNotice: string;
+  onUpdateCheck: () => void;
+  onUpdatePolicy: (checkOnStartup: boolean, downloadInBackground: boolean) => void;
 };
 
 const sections: Array<{ id: Section; label: MessageId }> = [
+  { id: "files", label: "settings.group.files" },
   { id: "appearance", label: "settings.group.appearance" },
   { id: "save", label: "settings.group.save" },
   { id: "edit", label: "settings.group.edit" },
@@ -31,15 +40,16 @@ const sections: Array<{ id: Section; label: MessageId }> = [
   { id: "about", label: "settings.group.about" },
 ];
 
-export function Settings({ open, settings, writing, onPatch, onWriting, onClose, onClosed, onDiagnostics }: Props) {
+export function Settings({ open, settings, writing, association, associationBusy, onMakeDefault, onPatch, onWriting, onClose, onClosed, onDiagnostics, update, updateNotice, onUpdateCheck, onUpdatePolicy }: Props) {
   useT();
   const [section, setSection] = useState<Section>("appearance");
+  const visible = sections.filter((item) => item.id !== "files" || association !== "unsupported");
   useEffect(() => {
     if (open) {
       setSection("appearance");
     }
   }, [open]);
-  const current = sections.find((item) => item.id === section) ?? sections[0];
+  const current = visible.find((item) => item.id === section) ?? visible[0];
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent className="settings" draggable aria-describedby={undefined} onClosed={onClosed}>
@@ -49,7 +59,7 @@ export function Settings({ open, settings, writing, onPatch, onWriting, onClose,
         </div>
         <div className="settings-body">
           <nav className="settings-nav" aria-label={t("settings.title")}>
-            {sections.map((item) => (
+            {visible.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -63,16 +73,54 @@ export function Settings({ open, settings, writing, onPatch, onWriting, onClose,
           <div className="settings-pane">
             {settings.settings_frozen ? <p className="settings-note">{t("settings.newer")}</p> : null}
             <h3 className="settings-pane-title">{t(current.label)}</h3>
+            {section === "files" ? <Files association={association} busy={associationBusy} onMakeDefault={onMakeDefault} /> : null}
             {section === "appearance" ? <Appearance settings={settings} writing={writing} onPatch={onPatch} onWriting={onWriting} /> : null}
             {section === "save" ? <Save settings={settings} onPatch={onPatch} /> : null}
             {section === "edit" ? <Edit settings={settings} onPatch={onPatch} /> : null}
             {section === "preview" ? <Preview settings={settings} onPatch={onPatch} /> : null}
             {section === "language" ? <Language /> : null}
-            {section === "about" ? <About onDiagnostics={onDiagnostics} /> : null}
+            {section === "about" ? (
+              <About
+                update={update}
+                notice={updateNotice}
+                onCheck={onUpdateCheck}
+                onPolicy={onUpdatePolicy}
+                onDiagnostics={onDiagnostics}
+              />
+            ) : null}
           </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function Files({
+  association,
+  busy,
+  onMakeDefault,
+}: {
+  association: AssociationState;
+  busy: boolean;
+  onMakeDefault: () => void;
+}) {
+  useT();
+  const status: MessageId = association === "default"
+    ? "assoc.status.default"
+    : association === "registered"
+      ? "assoc.status.registered"
+      : "assoc.status.unregistered";
+  return (
+    <div className="settings-row">
+      <div className="settings-row-copy">
+        <span>{t("assoc.status.label")}</span>
+        <p className="hint">{t(status)}</p>
+        <p className="hint">{t("assoc.hint")}</p>
+      </div>
+      <div className="settings-row-control">
+        <Button variant="secondary" disabled={busy} onClick={onMakeDefault}>{t("assoc.accept")}</Button>
+      </div>
+    </div>
   );
 }
 
@@ -400,16 +448,54 @@ function Preview({ settings, onPatch }: { settings: SettingsModel; onPatch: (pat
   );
 }
 
-function About({ onDiagnostics }: { onDiagnostics: () => void }) {
+function About({
+  update,
+  notice,
+  onCheck,
+  onPolicy,
+  onDiagnostics,
+}: {
+  update: UpdateSnapshot | null;
+  notice: string;
+  onCheck: () => void;
+  onPolicy: (checkOnStartup: boolean, downloadInBackground: boolean) => void;
+  onDiagnostics: () => void;
+}) {
   useT();
+  const checking = update?.phase === "checking";
+  const checkError = update?.phase === "idle" && update.error
+    ? presentError({ code: "io", message: update.error })
+    : "";
   return (
     <div>
       <div className="settings-row">
         <div className="settings-row-copy">
-          <span>{t("app.name")}</span>
+          <span>{update?.current_version ? t("update.current", { version: update.current_version }) : t("app.name")}</span>
           <p className="hint">{t("settings.aboutBody")}</p>
+          {update?.dev_build ? <p className="hint">{t("update.dev")}</p> : null}
+          {checkError ? <p className="hint">{checkError}</p> : null}
+          {notice && !checkError ? <p className="hint">{notice}</p> : null}
+        </div>
+        <div className="settings-row-control">
+          <Button variant="secondary" disabled={!update || update.dev_build || checking} onClick={onCheck}>
+            {checking ? t("update.checking") : t("update.check")}
+          </Button>
         </div>
       </div>
+      <CheckRow
+        label={t("update.checkOnStartup")}
+        hint={t("update.checkOnStartupHint")}
+        checked={update?.check_on_startup ?? false}
+        disabled={!update}
+        onChange={(checked) => update && onPolicy(checked, update.download_in_background)}
+      />
+      <CheckRow
+        label={t("update.downloadInBackground")}
+        hint={t("update.downloadInBackgroundHint")}
+        checked={update?.download_in_background ?? false}
+        disabled={!update}
+        onChange={(checked) => update && onPolicy(update.check_on_startup, checked)}
+      />
       <div className="settings-row">
         <div className="settings-row-copy">
           <span>{t("settings.diagnostics")}</span>
@@ -517,11 +603,13 @@ function CheckRow({
   label,
   hint,
   checked,
+  disabled,
   onChange,
 }: {
   label: string;
   hint?: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   const id = useId();
@@ -536,6 +624,7 @@ function CheckRow({
           id={id}
           type="checkbox"
           checked={checked}
+          disabled={disabled}
           aria-describedby={hint ? `${id}-hint` : undefined}
           onChange={(event) => onChange(event.target.checked)}
         />

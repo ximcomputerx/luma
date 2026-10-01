@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::time::Instant;
 
 use rustmark_core::{list_folder, EntryKind, JailError};
@@ -6,7 +6,7 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::error::{canceled, io_failed, outside_jail, CommandError};
+use crate::error::{canceled, io_failed, outside_jail, rejected, CommandError};
 use crate::logging::log_command;
 use crate::state::{self, AppState};
 
@@ -46,8 +46,34 @@ pub async fn folder_open(
         return Err(canceled());
     };
     let path = path.into_path().map_err(|_| io_failed())?;
-    let mut session = state::lock(&state);
-    let root = match session.jail.set_folder_root(&path) {
+    open_folder(state.inner(), &path, started, "folder_open")
+}
+
+#[tauri::command]
+pub fn folder_open_path(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<FolderPayload, CommandError> {
+    let started = Instant::now();
+    open_folder(state.inner(), Path::new(&path), started, "folder_open_path")
+}
+
+fn open_folder(
+    state: &AppState,
+    path: &Path,
+    started: Instant,
+    command: &str,
+) -> Result<FolderPayload, CommandError> {
+    if path
+        .components()
+        .any(|component| component == Component::ParentDir)
+        || !path.is_dir()
+    {
+        log_command(command, started, 0, 0, "rejected", &file_name(path));
+        return Err(rejected());
+    }
+    let mut session = state::lock(state);
+    let root = match session.jail.set_folder_root(path) {
         Ok(root) => root,
         Err(JailError::Io) => return Err(io_failed()),
         Err(JailError::Outside) | Err(JailError::NoRoot) => return Err(outside_jail()),
@@ -59,7 +85,7 @@ pub async fn folder_open(
         truncated: page.truncated,
     };
     log_command(
-        "folder_open",
+        command,
         started,
         payload.entries.len() as u64,
         0,
