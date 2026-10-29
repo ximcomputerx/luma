@@ -13,7 +13,7 @@ Luma is a local Markdown writing app for Windows. Notes are ordinary Markdown fi
 - Tabs, a folder tree, and recent files. Opened extensions are `.md`, `.markdown`, `.mdown`, and `.mkdn`.
 - Find, an outline, autosave, a confirm-before-close prompt for unsaved edits, and pasted images.
 - Export to HTML and PDF.
-- Nine writing themes: Ivory, Sepia, Mist, Sakura, Forest, Blue gray, Midnight, Nord Night, and Coffee. The interface is available in Simplified Chinese and English.
+- Twelve writing themes: Ivory, Sepia, Mist, Sakura, Forest, Blue gray, Snow, Midnight, Nord Night, Coffee, Ink, and Pine Night. The interface is available in Simplified Chinese and English.
 - A command palette. Opening a file while Luma is already running delivers it to the current window.
 - The app settings can make Luma the default Markdown program on Windows. The installer leaves the current default program as it is.
 

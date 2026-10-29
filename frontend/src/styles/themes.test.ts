@@ -7,7 +7,7 @@ function blue(hex: string): number {
 
 describe("theme tokens", () => {
   it("keeps one catalog entry for each writing theme", () => {
-    expect(themeIds).toHaveLength(9);
+    expect(themeIds).toHaveLength(12);
     for (const id of themeIds) {
       const theme = themes[id];
       expect(theme.id).toBe(id);

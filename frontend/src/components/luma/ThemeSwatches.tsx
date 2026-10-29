@@ -9,9 +9,12 @@ const labels: Record<ThemeId, MessageId> = {
   sakura: "settings.theme.sakura",
   forest: "settings.theme.forest",
   bluegray: "settings.theme.bluegray",
+  snow: "settings.theme.snow",
   midnight: "settings.theme.midnight",
   nord: "settings.theme.nord",
   coffee: "settings.theme.coffee",
+  ink: "settings.theme.ink",
+  pine: "settings.theme.pine",
 };
 
 type Props = {
