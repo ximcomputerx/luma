@@ -73,9 +73,12 @@ export function ThemeSwatches({ value, onChange }: Props) {
             onClick={() => onChange(id)}
           >
             <span className="theme-chip" aria-hidden="true">
-              <span style={{ background: theme.sidebar }} />
-              <span style={{ background: theme.editor }} />
-              <span style={{ background: theme.paper }} />
+              <span className="theme-chip-surfaces">
+                <span style={{ background: theme.sidebar }} />
+                <span style={{ background: theme.editor }} />
+                <span style={{ background: theme.paper }} />
+              </span>
+              <span className="theme-chip-accent" style={{ background: theme.accent }} />
             </span>
             <span className="theme-name">{t(labels[id])}</span>
           </button>

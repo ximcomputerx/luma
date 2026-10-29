@@ -2,7 +2,7 @@ import { contrast, themes, type ThemeTokens } from "../styles/themes";
 import { cssFamily, type WritingStorage } from "../styles/writing";
 
 const storageKey = "luma.pdf.v1";
-const ivoryPaper = "#fbf6ee";
+const ivoryPaper = "#fffaf1";
 const hexPattern = /^#[0-9a-fA-F]{6}$/;
 
 export const pdfBases = ["modern", "academic", "book", "minimal", "technical"] as const;

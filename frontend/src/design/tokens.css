@@ -1,20 +1,20 @@
 :root {
-  --luma-background: #f3f0e8;
-  --luma-sidebar: #ebe6dc;
-  --luma-editor: #f7f3eb;
-  --luma-preview-paper: #fbf6ee;
-  --luma-elevated: #fffdf8;
-  --luma-border: #e4d9c8;
-  --luma-text-primary: #2c2822;
-  --luma-text-heading: #1f1c17;
-  --luma-text-secondary: #8a8174;
-  --luma-link: #2f5d50;
-  --luma-accent: #2f5d50;
+  --luma-background: #efe6d6;
+  --luma-sidebar: #e4d8c4;
+  --luma-editor: #f7f1e4;
+  --luma-preview-paper: #fffaf1;
+  --luma-elevated: #fbf9f3;
+  --luma-border: #b5a488;
+  --luma-text-primary: #2a241c;
+  --luma-text-heading: #1a1612;
+  --luma-text-secondary: #645e56;
+  --luma-link: #1d6a4f;
+  --luma-accent: #1b463c;
   --luma-accent-foreground: #ffffff;
   --luma-danger: #9c3b32;
   --luma-dirty: #a8843d;
-  --luma-code: #f3ece2;
-  --luma-selection: #d5e6df;
+  --luma-code: #f0e4d2;
+  --luma-selection: #c7cbbf;
 
   --luma-measure: 40rem;
   --luma-line: 1.75;

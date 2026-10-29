@@ -15,10 +15,22 @@ describe("theme tokens", () => {
         expect(color).toMatch(/^#[0-9a-f]{6}$/);
       }
     }
-    expect(themes.ivory.paper).toBe("#fbf6ee");
-    expect(themes.midnight.paper).toBe("#242019");
-    expect(themes.ivory.text).toBe("#2c2822");
+    expect(themes.ivory.paper).toBe("#fffaf1");
+    expect(themes.midnight.paper).toBe("#262119");
+    expect(themes.ivory.text).toBe("#2a241c");
     expect(themes.midnight.text).toBe("#f4efe6");
+    expect(themes.ivory.accent).not.toBe(themes.forest.accent);
+  });
+
+  it("keeps a hairline visible on the sidebar and the raised surface", () => {
+    for (const id of themeIds) {
+      for (const warm of [false, true]) {
+        const theme = presentTheme(id, warm);
+        expect(contrast(theme.border, theme.sidebar)).toBeGreaterThanOrEqual(1.45);
+        expect(contrast(theme.border, theme.elevated)).toBeGreaterThanOrEqual(1.45);
+        expect(theme.link).not.toBe(theme.accent);
+      }
+    }
   });
 
   it("keeps body text and links readable on paper and in the editor", () => {

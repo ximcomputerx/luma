@@ -145,7 +145,7 @@ export function AppShell() {
   const [pendingChoice, setPendingChoice] = useState<{ resolve: (choice: DirtyChoice) => void } | null>(null);
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [words, setWords] = useState(0);
-  const [sideTab, setSideTab] = useState<SidePane>("recent");
+  const [sideTab, setSideTab] = useState<SidePane>("outline");
   const [tabs, setTabs] = useState<DocState[]>([]);
   const [headings, setHeadings] = useState<OutlineEntry[]>([]);
   const headingsRef = useRef<OutlineEntry[]>([]);
@@ -1439,7 +1439,7 @@ export function AppShell() {
       ) : null}
       <div
         className={mode === "split" ? "workspace is-split" : "workspace"}
-        style={mode === "split" ? { gridTemplateColumns: `minmax(120px, 200px) 6px minmax(0, ${1 - previewRatio}fr) 6px minmax(0, ${previewRatio}fr)` } : undefined}
+        style={mode === "split" ? { gridTemplateColumns: `${sidebarWidth}px 6px minmax(0, ${1 - previewRatio}fr) 6px minmax(0, ${previewRatio}fr)` } : undefined}
       >
         <Sidebar
           width={sidebarWidth}
@@ -1470,7 +1470,7 @@ export function AppShell() {
           ) : null}
           <div className="editor-host" ref={editorHost} />
         </div>
-        {mode === "split" ? <div className="splitter" onPointerDown={(event) => dragRatio(event, setPreviewRatio)} /> : null}
+        {mode === "split" ? <div className="splitter" onPointerDown={(event) => dragRatio(event, previewRatio, setPreviewRatio)} /> : null}
         <div className={mode === "source" ? "preview-wrap is-hidden" : "preview-wrap"} style={mode === "split" ? undefined : { flex: "1 1 auto", minWidth: 0 }}>
           {outline ? (
             <button
@@ -1592,16 +1592,23 @@ function dragWidth(event: { clientX: number }, startWidth: number, setWidth: (va
   window.addEventListener("pointerup", up);
 }
 
-function dragRatio(event: { clientX: number; currentTarget: EventTarget }, setRatio: (value: number) => void) {
-  const bounds = (event.currentTarget as HTMLElement).parentElement?.getBoundingClientRect();
-  if (!bounds) {
+function dragRatio(event: { clientX: number; currentTarget: EventTarget }, startRatio: number, setRatio: (value: number) => void) {
+  const splitter = event.currentTarget as HTMLElement;
+  const editor = splitter.previousElementSibling;
+  const preview = splitter.nextElementSibling;
+  if (!(editor instanceof HTMLElement) || !(preview instanceof HTMLElement)) {
     return;
   }
-  const box = bounds;
+  const editorBox = editor.getBoundingClientRect();
+  const previewBox = preview.getBoundingClientRect();
+  const free = previewBox.right - editorBox.left - (previewBox.left - editorBox.right);
+  if (free <= 0) {
+    return;
+  }
+  const origin = event.clientX;
   const releaseCursor = holdResizeCursor();
   function move(next: PointerEvent) {
-    const ratio = (box.right - next.clientX) / box.width;
-    setRatio(Math.min(0.7, Math.max(0.25, ratio)));
+    setRatio(Math.min(0.7, Math.max(0.25, startRatio - (next.clientX - origin) / free)));
   }
   function up() {
     releaseCursor();

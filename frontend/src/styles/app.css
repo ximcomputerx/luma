@@ -246,7 +246,7 @@ html, body, #root {
 
 .workspace.is-split {
   display: grid;
-  grid-template-columns: minmax(120px, 200px) 6px minmax(0, 1fr) 6px minmax(0, 1.2fr);
+  grid-template-columns: 240px 6px minmax(0, 1fr) 6px minmax(0, 1.2fr);
 }
 
 .workspace.is-split > .sidebar-column,
@@ -809,13 +809,25 @@ html, body, #root {
 
 .theme-chip {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 52px;
   overflow: hidden;
   border-radius: var(--radius-sm);
 }
 
-.theme-chip > span { flex: 1; }
+.theme-chip-surfaces {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.theme-chip-surfaces > span { flex: 1; }
+
+.theme-chip-accent {
+  flex: none;
+  height: 4px;
+}
 
 .theme-option[aria-checked="true"] { color: var(--text-primary); }
 

@@ -119,18 +119,18 @@ describe("pdf profiles", () => {
       paper: warm.paper,
     });
     expect(themePrintColors(themes.ivory)).toEqual({
-      text: "#2c2822",
-      heading: "#1f1c17",
-      link: "#2f5d50",
-      codeBg: "#f3ece2",
-      paper: "#fbf6ee",
+      text: "#2a241c",
+      heading: "#1a1612",
+      link: "#1d6a4f",
+      codeBg: "#f0e4d2",
+      paper: "#fffaf1",
     });
     expect(themePrintColors(themes.midnight)).toEqual({
-      text: "#2c2822",
-      heading: "#1f1c17",
-      link: "#2f5d50",
-      codeBg: "#f3ece2",
-      paper: "#fbf6ee",
+      text: "#2a241c",
+      heading: "#1a1612",
+      link: "#1d6a4f",
+      codeBg: "#f0e4d2",
+      paper: "#fffaf1",
     });
   });
 
@@ -169,8 +169,8 @@ describe("pdf profiles", () => {
     expect(academic).not.toHaveProperty("imageMaxPercent");
 
     const modern = toWire(applyTemplate("modern"), themes.midnight, "en-US");
-    expect(modern.paper_color).toBe("#fbf6ee");
-    expect(modern.text).toBe("#2c2822");
+    expect(modern.paper_color).toBe("#fffaf1");
+    expect(modern.text).toBe("#2a241c");
     expect(modern.lang).toBe("en-US");
     expect(toWire(applyTemplate("minimal"), themes.ivory, "zh-CN").line_height).toBe(1.85);
   });
