@@ -428,7 +428,7 @@ html, body, #root {
 
 .splitter {
   position: relative;
-  width: 4px;
+  width: 1px;
   cursor: ew-resize;
   background: transparent;
   flex: none;
@@ -443,7 +443,7 @@ html, body, #root {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 1px;
+  left: 0px;
   width: 1px;
   background: var(--accent);
 }

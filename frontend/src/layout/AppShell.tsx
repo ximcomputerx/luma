@@ -1439,7 +1439,7 @@ export function AppShell() {
       ) : null}
       <div
         className={mode === "split" ? "workspace is-split" : "workspace"}
-        style={mode === "split" ? { gridTemplateColumns: `${sidebarWidth}px 6px minmax(0, ${1 - previewRatio}fr) 6px minmax(0, ${previewRatio}fr)` } : undefined}
+        style={mode === "split" ? { gridTemplateColumns: `${sidebarWidth}px 1px minmax(0, ${1 - previewRatio}fr) 1px minmax(0, ${previewRatio}fr)` } : undefined}
       >
         <Sidebar
           width={sidebarWidth}
