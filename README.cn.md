@@ -17,6 +17,14 @@ Luma 是 Windows 上的本地 Markdown 写作工具。笔记就是磁盘上的�
 - 命令面板。Luma 已经打开时，再次用它打开文件会进入当前窗口。
 - 可以在应用设置里把 Luma 选为 Windows 的默认 Markdown 程序。安装程序保持系统里现有的默认程序。
 
+## 截图
+
+<img src="docs/screenshots/1.png" alt="Luma in split view with the Coffee theme" width="720">
+
+<img src="docs/screenshots/2.png" alt="Luma in split view with the Midnight theme" width="720">
+
+<img src="docs/screenshots/3.png" alt="Luma in split view with the Pine Night theme" width="720">
+
 ## 现状
 
 - 版本 0.1.0，已在 Windows x64 上打包。

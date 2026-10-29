@@ -17,6 +17,14 @@ Luma is a local Markdown writing app for Windows. Notes are ordinary Markdown fi
 - A command palette. Opening a file while Luma is already running delivers it to the current window.
 - The app settings can make Luma the default Markdown program on Windows. The installer leaves the current default program as it is.
 
+## Screenshots
+
+<img src="docs/screenshots/1.png" alt="Luma in split view with the Coffee theme" width="720">
+
+<img src="docs/screenshots/2.png" alt="Luma in split view with the Midnight theme" width="720">
+
+<img src="docs/screenshots/3.png" alt="Luma in split view with the Pine Night theme" width="720">
+
 ## Status
 
 - Version 0.1.0, packaged for Windows x64.
