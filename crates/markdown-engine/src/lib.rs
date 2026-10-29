@@ -3,6 +3,7 @@
 
 mod adapter;
 mod ast;
+mod html_img;
 
 pub use adapter::parse;
 pub use ast::*;

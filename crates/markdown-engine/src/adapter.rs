@@ -6,6 +6,7 @@ use rustmark_core::NewlineStyle;
 use crate::ast::{
     AlertKind, Alignment, Block, BlockKind, DiagramEngine, Document, Inline, SourceSpan,
 };
+use crate::html_img::{images_from_html, scan_html_tags};
 
 /// GFM tables, strikethrough, task lists, math, and alert labels.
 /// Wikilinks, footnotes, smart punctuation, and metadata stay off.
@@ -26,9 +27,16 @@ pub fn parse(markdown_lf: &str, newline: NewlineStyle) -> Document {
         stack: Vec::new(),
         roots: Vec::new(),
         skip: 0,
+        html_block: None,
+        inline_html: None,
     };
     for (event, range) in parser.into_offset_iter() {
         builder.push_event(event, range.start, range.end);
+    }
+    builder.flush_inline_html();
+    if let Some(capture) = builder.html_block.take() {
+        let end = markdown_lf.len();
+        builder.finish_html_block(capture, end);
     }
     while let Some(open) = builder.stack.pop() {
         builder.finish(open, markdown_lf.len(), markdown_lf.len());
@@ -45,6 +53,20 @@ struct Builder {
     stack: Vec<Open>,
     roots: Vec<Block>,
     skip: u32,
+    html_block: Option<HtmlCapture>,
+    inline_html: Option<InlineHtmlRun>,
+}
+
+struct InlineHtmlRun {
+    buf: String,
+    depth: u32,
+    swallow: bool,
+}
+
+struct HtmlCapture {
+    start: usize,
+    text: String,
+    poisoned: bool,
 }
 
 enum Open {
@@ -76,6 +98,19 @@ impl Builder {
             }
             return;
         }
+        if self.html_block.is_some() {
+            self.flush_inline_html();
+            self.capture_html(event, end);
+            return;
+        }
+        if let Event::InlineHtml(html) = &event {
+            self.push_inline_html(html);
+            return;
+        }
+        if self.absorb_inline_html_text(&event) {
+            return;
+        }
+        self.flush_inline_html();
         match event {
             Event::Start(tag) => self.start_tag(tag, start, end),
             Event::End(_) => self.end_tag(end),
@@ -95,8 +130,14 @@ impl Builder {
 
     fn start_tag(&mut self, tag: Tag<'_>, start: usize, end: usize) {
         match tag {
-            Tag::HtmlBlock
-            | Tag::FootnoteDefinition(_)
+            Tag::HtmlBlock => {
+                self.html_block = Some(HtmlCapture {
+                    start,
+                    text: String::new(),
+                    poisoned: false,
+                });
+            }
+            Tag::FootnoteDefinition(_)
             | Tag::DefinitionList
             | Tag::DefinitionListTitle
             | Tag::DefinitionListDefinition
@@ -163,6 +204,118 @@ impl Builder {
             Tag::Image { dest_url, .. } => self.open_inline(InlineKind::Image {
                 dest: dest_url.into_string(),
             }),
+        }
+    }
+
+    fn capture_html(&mut self, event: Event<'_>, end: usize) {
+        match event {
+            Event::Html(text) | Event::InlineHtml(text) => {
+                if let Some(capture) = self.html_block.as_mut() {
+                    capture.text.push_str(&text);
+                }
+            }
+            Event::End(_) => {
+                if let Some(capture) = self.html_block.take() {
+                    self.finish_html_block(capture, end);
+                }
+            }
+            Event::Start(_) => {
+                self.html_block = None;
+                self.skip = 1;
+            }
+            _ => {
+                if let Some(capture) = self.html_block.as_mut() {
+                    capture.poisoned = true;
+                }
+            }
+        }
+    }
+
+    fn finish_html_block(&mut self, capture: HtmlCapture, end: usize) {
+        if capture.poisoned {
+            return;
+        }
+        let Some(images) = images_from_html(&capture.text) else {
+            return;
+        };
+        if images.is_empty() {
+            return;
+        }
+        let inlines = images
+            .into_iter()
+            .map(|(dest, alt)| Inline::Image { dest, alt })
+            .collect();
+        self.push_finished(
+            BlockKind::Paragraph,
+            capture.start,
+            end,
+            Vec::new(),
+            inlines,
+        );
+    }
+
+    fn push_inline_html(&mut self, html: &str) {
+        if self.inline_html.is_none() {
+            self.inline_html = Some(InlineHtmlRun {
+                buf: String::new(),
+                depth: 0,
+                swallow: false,
+            });
+        }
+        if let Some(run) = self.inline_html.as_mut() {
+            run.buf.push_str(html);
+            scan_html_tags(html, &mut run.depth, &mut run.swallow);
+        }
+    }
+
+    fn absorb_inline_html_text(&mut self, event: &Event<'_>) -> bool {
+        let swallow = match &self.inline_html {
+            Some(run) if run.depth > 0 => run.swallow,
+            _ => return false,
+        };
+        match event {
+            Event::Text(text) if swallow => {
+                self.inline_html.as_mut().unwrap().buf.push_str(text);
+                true
+            }
+            Event::Text(text) => {
+                self.push_text(text);
+                true
+            }
+            Event::Code(text) if swallow => {
+                self.inline_html.as_mut().unwrap().buf.push_str(text);
+                true
+            }
+            Event::Code(text) => {
+                self.push_inline(Inline::Code(text.to_string()));
+                true
+            }
+            Event::SoftBreak if !swallow => {
+                self.push_break(false);
+                true
+            }
+            Event::HardBreak if !swallow => {
+                self.push_break(true);
+                true
+            }
+            Event::Start(_) | Event::End(_) => false,
+            _ => swallow,
+        }
+    }
+
+    fn flush_inline_html(&mut self) {
+        let Some(run) = self.inline_html.take() else {
+            return;
+        };
+        self.push_html_images(&run.buf);
+    }
+
+    fn push_html_images(&mut self, html: &str) {
+        let Some(images) = images_from_html(html) else {
+            return;
+        };
+        for (dest, alt) in images {
+            self.push_inline(Inline::Image { dest, alt });
         }
     }
 
@@ -536,7 +689,7 @@ fn end_line(starts: &[usize], end_exclusive: usize) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::{BlockKind, Inline};
+    use crate::ast::{Block, BlockKind, Inline};
 
     fn doc(markdown: &str) -> Document {
         parse(markdown, NewlineStyle::Lf)
@@ -649,6 +802,109 @@ mod tests {
             block.kind,
             BlockKind::Code { .. } | BlockKind::Diagram { .. }
         )));
+    }
+
+    #[test]
+    fn html_img_block_becomes_an_image() {
+        assert_eq!(
+            image_nodes("<img src=\"docs/screenshots/1.png\" alt=\"截图\" width=\"720\">\n"),
+            vec![("docs/screenshots/1.png".to_string(), "截图".to_string())]
+        );
+        assert_eq!(
+            image_nodes("<IMG SRC='a.png' ALT=\"say &quot;hi&quot;\" />\n"),
+            vec![("a.png".to_string(), "say \"hi\"".to_string())]
+        );
+        assert_eq!(
+            image_nodes("<img src=\"a.png\" alt=\"a\">\n<img src=\"b.png\" alt=\"b\">\n"),
+            vec![
+                ("a.png".to_string(), "a".to_string()),
+                ("b.png".to_string(), "b".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn html_img_inside_a_paragraph_keeps_surrounding_text() {
+        let markdown = "看 <img src=\"a.png\" alt=\"图\"> 这里\n";
+        let parsed = doc(markdown);
+        let dumped = format!("{parsed:?}");
+        assert!(dumped.contains("看"));
+        assert!(dumped.contains("这里"));
+        assert_eq!(
+            image_nodes(markdown),
+            vec![("a.png".to_string(), "图".to_string())]
+        );
+    }
+
+    #[test]
+    fn html_img_drops_event_handlers_and_mixed_markup() {
+        let kept = doc("<img src=\"a.png\" onerror=\"alert(1)\" alt=\"图\">\n");
+        let kept_dump = format!("{kept:?}");
+        assert!(!kept_dump.contains("onerror"));
+        assert!(!kept_dump.contains("alert"));
+        assert_eq!(
+            image_nodes("<img src=\"a.png\" onerror=\"alert(1)\" alt=\"图\">\n"),
+            vec![("a.png".to_string(), "图".to_string())]
+        );
+        for markdown in [
+            "<div><img src=\"a.png\"></div>\n",
+            "<img src=\"a.png\"><script>alert(1)</script>\n",
+            "<script>alert(1)</script>\n",
+            "前文 <script>alert(1)</script> 后文\n",
+        ] {
+            let dumped = format!("{:?}", doc(markdown));
+            assert!(!dumped.contains("a.png"), "{markdown}\n{dumped}");
+            assert!(!dumped.contains("alert"), "{markdown}\n{dumped}");
+            assert!(image_nodes(markdown).is_empty(), "{markdown}");
+        }
+        let around = format!("{:?}", doc("前文 <script>alert(1)</script> 后文\n"));
+        assert!(around.contains("前文"));
+        assert!(around.contains("后文"));
+        let emphasis = format!("{:?}", doc("<em>hello</em>\n"));
+        assert!(emphasis.contains("hello"));
+    }
+
+    #[test]
+    fn code_keeps_img_tags_as_text() {
+        let inline = doc("`<img src=\"a.png\">`\n");
+        assert!(image_nodes("`<img src=\"a.png\">`\n").is_empty());
+        assert!(format!("{inline:?}").contains("a.png"));
+        let fenced = doc("```\n<img src=\"a.png\">\n```\n");
+        assert!(matches!(fenced.blocks[0].kind, BlockKind::Code { .. }));
+        assert!(image_nodes("```\n<img src=\"a.png\">\n```\n").is_empty());
+    }
+
+    #[test]
+    fn reference_image_keeps_the_destination() {
+        assert_eq!(
+            image_nodes("![封面][shot]\n\n[shot]: docs/screenshots/1.png\n"),
+            vec![("docs/screenshots/1.png".to_string(), "封面".to_string())]
+        );
+    }
+
+    fn image_nodes(markdown: &str) -> Vec<(String, String)> {
+        fn walk_inlines(inlines: &[Inline], out: &mut Vec<(String, String)>) {
+            for inline in inlines {
+                match inline {
+                    Inline::Image { dest, alt } => out.push((dest.clone(), alt.clone())),
+                    Inline::Emphasis(children)
+                    | Inline::Strong(children)
+                    | Inline::Strike(children)
+                    | Inline::Link { children, .. } => walk_inlines(children, out),
+                    _ => {}
+                }
+            }
+        }
+        fn walk(blocks: &[Block], out: &mut Vec<(String, String)>) {
+            for block in blocks {
+                walk_inlines(&block.inlines, out);
+                walk(&block.children, out);
+            }
+        }
+        let parsed = doc(markdown);
+        let mut out = Vec::new();
+        walk(&parsed.blocks, &mut out);
+        out
     }
 
     #[test]

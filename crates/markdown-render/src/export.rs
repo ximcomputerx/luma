@@ -498,6 +498,21 @@ mod tests {
     }
 
     #[test]
+    fn html_img_exports_like_a_markdown_image() {
+        let html = export_html(
+            "<img src=\"docs/screenshots/1.png\" alt=\"截图\" width=\"720\">\n",
+            "笔记",
+        );
+        assert!(html.contains("src=\"docs/screenshots/1.png\""));
+        assert!(html.contains("alt=\"截图\""));
+        assert!(!html.contains("width="));
+        let mixed = export_html("<img src=\"a.png\"><script>alert(1)</script>\n", "笔记");
+        assert!(!mixed.contains("a.png"));
+        assert!(!mixed.to_ascii_lowercase().contains("script"));
+        assert!(!mixed.contains("alert"));
+    }
+
+    #[test]
     fn data_urls_from_the_caller_survive_the_cleaner() {
         let html = export_html_with("![图](assets/a.png)\n", "笔记", |dest| {
             if dest == "assets/a.png" {

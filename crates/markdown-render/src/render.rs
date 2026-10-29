@@ -470,6 +470,49 @@ mod tests {
     }
 
     #[test]
+    fn html_image_asks_the_local_resolver() {
+        let request = PreviewRequest {
+            render_gen: 1,
+            markdown_lf: "<img src=\"docs/screenshots/1.png\" alt=\"截图\">\n".to_string(),
+            force_full: false,
+        };
+        let mut seen = Vec::new();
+        let payload = render_preview_resolved(&request, &PreviewFlags::default(), &mut |dest| {
+            seen.push(dest.to_string());
+            (dest == "docs/screenshots/1.png").then(|| "data:image/png;base64,AAAA".to_string())
+        })
+        .unwrap();
+        assert_eq!(seen, vec!["docs/screenshots/1.png".to_string()]);
+        assert_eq!(
+            image_srcs(&payload),
+            vec![Some("data:image/png;base64,AAAA".to_string())]
+        );
+
+        let blocked = render("<img src=\"javascript:alert(1)\" alt=\"x\">\n");
+        let srcs = image_srcs(&blocked);
+        assert_eq!(srcs.len(), 1);
+        assert!(srcs[0].is_none());
+        let dumped = serde_json::to_string(&blocked).unwrap();
+        assert!(!dumped.contains("javascript"));
+    }
+
+    #[test]
+    fn windows_relative_image_reaches_the_resolver() {
+        let request = PreviewRequest {
+            render_gen: 1,
+            markdown_lf: "![a](docs\\screenshots\\1.png)\n".to_string(),
+            force_full: false,
+        };
+        let mut seen = Vec::new();
+        render_preview_resolved(&request, &PreviewFlags::default(), &mut |dest| {
+            seen.push(dest.to_string());
+            None
+        })
+        .unwrap();
+        assert_eq!(seen, vec!["docs\\screenshots\\1.png".to_string()]);
+    }
+
+    #[test]
     fn links_have_no_href() {
         let dumped = json("[hello](https://example.com)\n");
         assert!(dumped.contains("\"type\":\"link\""));

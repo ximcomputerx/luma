@@ -28,11 +28,22 @@ pub fn local_image_source(raw: &str) -> Option<LocalImage> {
     let raw = raw.trim();
     if raw.is_empty()
         || raw.len() > 1024
-        || raw.contains(['\0', '\n', '\r', '\\'])
+        || raw.contains(['\0', '\n', '\r'])
         || raw.starts_with("//")
+        || raw.starts_with('\\')
     {
         return None;
     }
+    let normalized;
+    let raw = if raw.contains('\\') {
+        if has_scheme(raw) || raw.starts_with('/') {
+            return None;
+        }
+        normalized = raw.replace('\\', "/");
+        normalized.as_str()
+    } else {
+        raw
+    };
     if !has_scheme(raw) {
         let path = Path::new(raw);
         if path.is_absolute()
@@ -65,15 +76,22 @@ pub fn local_image_source(raw: &str) -> Option<LocalImage> {
 
 /// Classify a markdown image destination.
 ///
-/// Protocol-relative URLs and backslash tricks are rejected. Hostnames are not
-/// resolved, so a public name that later redirects remains a known gap.
+/// Protocol-relative URLs and backslash tricks in URLs are rejected. A
+/// scheme-less relative path may use `\` and stays a placeholder. Hostnames
+/// are not resolved, so a public name that later redirects remains a known gap.
 pub fn classify_image_destination(raw: &str) -> ImageDestination {
     let raw = raw.trim();
     if raw.is_empty() {
         return ImageDestination::Placeholder;
     }
-    if raw.starts_with("//") || raw.contains('\\') || raw.len() > 2048 {
+    if raw.starts_with("//") || raw.len() > 2048 {
         return ImageDestination::Rejected;
+    }
+    if raw.contains('\\') {
+        if has_scheme(raw) || raw.starts_with(['\\', '/']) {
+            return ImageDestination::Rejected;
+        }
+        return ImageDestination::Placeholder;
     }
     if !has_scheme(raw) {
         return ImageDestination::Placeholder;
@@ -169,7 +187,36 @@ mod tests {
         assert!(local_image_source("C:/secret.png").is_none());
         assert!(local_image_source("https://example.com/a.png").is_none());
         assert!(local_image_source("javascript:alert(1)").is_none());
-        assert!(local_image_source(r"assets\a.png").is_none());
+        assert!(local_image_source(r"docs\..\secret.png").is_none());
+        assert!(local_image_source(r"C:\secret.png").is_none());
+        assert!(local_image_source(r"\\server\a.png").is_none());
+    }
+
+    #[test]
+    fn windows_relative_slashes_stay_inside_the_note() {
+        match local_image_source(r"docs\screenshots\1.png") {
+            Some(LocalImage::Relative(path)) => {
+                assert_eq!(
+                    path.components().collect::<Vec<_>>(),
+                    Path::new("docs/screenshots/1.png")
+                        .components()
+                        .collect::<Vec<_>>()
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(matches!(
+            classify_image_destination(r"docs\screenshots\1.png"),
+            ImageDestination::Placeholder
+        ));
+        assert!(matches!(
+            classify_image_destination(r"\\server\a.png"),
+            ImageDestination::Rejected
+        ));
+        assert!(matches!(
+            classify_image_destination(r"C:\a.png"),
+            ImageDestination::Rejected
+        ));
     }
 
     #[test]

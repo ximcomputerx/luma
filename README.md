@@ -9,7 +9,7 @@ Luma is a local Markdown writing app for Windows. Notes are ordinary Markdown fi
 ## Features
 
 - Three layouts: source, preview, and a side-by-side split. The editor is CodeMirror 6, and CJK input uses the system IME.
-- Preview covers headings, emphasis, lists, task lists, tables, quotes, code blocks, KaTeX math, and Mermaid diagrams. The preview is drawn in a sandboxed iframe.
+- Preview covers headings, emphasis, lists, task lists, tables, quotes, code blocks, images, KaTeX math, and Mermaid diagrams. The preview is drawn in a sandboxed iframe.
 - Tabs, a folder tree, and recent files. Opened extensions are `.md`, `.markdown`, `.mdown`, and `.mkdn`.
 - Find, an outline, autosave, a confirm-before-close prompt for unsaved edits, and pasted images.
 - Export to HTML and PDF.
