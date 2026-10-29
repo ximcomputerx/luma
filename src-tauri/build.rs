@@ -1,4 +1,7 @@
 fn main() {
+    // The icon path is stable, so Cargo will not rebuild the Windows resource
+    // when only icon.ico bytes change unless this file is declared.
+    println!("cargo:rerun-if-changed=icons/icon.ico");
     let attributes =
         tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new().commands(&[
             "preview_render",
