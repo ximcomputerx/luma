@@ -461,6 +461,11 @@
     if (!message || typeof message.type !== "string") {
       return;
     }
+    if (message.type === "configure") {
+      lumaRemoteImages = message.remoteImages === true;
+      lumaCopy = message.copy || lumaCopy;
+      return;
+    }
     if (message.type === "render") {
       replaceTree(message);
     } else if (message.type === "scrollTo") {
@@ -487,4 +492,11 @@
     renderBlock: renderBlock,
     diagramFailure: diagramFailure,
   };
+
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(
+      { type: "ready", token: typeof lumaShellToken === "number" ? lumaShellToken : 0 },
+      "*",
+    );
+  }
 })();

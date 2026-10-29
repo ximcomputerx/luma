@@ -1148,7 +1148,7 @@ export function AppShell() {
 
   useEffect(() => {
     function measure() {
-      setNarrow(window.innerWidth < 960);
+      setNarrow(window.innerWidth < 720);
     }
     measure();
     window.addEventListener("resize", measure);
@@ -1437,7 +1437,10 @@ export function AppShell() {
           onClose={() => setFindOpen(false)}
         />
       ) : null}
-      <div className="workspace">
+      <div
+        className={mode === "split" ? "workspace is-split" : "workspace"}
+        style={mode === "split" ? { gridTemplateColumns: `minmax(120px, 200px) 6px minmax(0, ${1 - previewRatio}fr) 6px minmax(0, ${previewRatio}fr)` } : undefined}
+      >
         <Sidebar
           width={sidebarWidth}
           pane={sideTab}
@@ -1458,7 +1461,7 @@ export function AppShell() {
           onJump={jumpTo}
         />
         <div className="splitter" onPointerDown={(event) => dragWidth(event, sidebarWidth, setSidebarWidth)} />
-        <div className={mode === "preview" ? "editor-pane is-hidden" : "editor-pane"} style={{ flex: mode === "split" ? 1 - previewRatio : 1, minWidth: mode === "preview" ? 0 : 320 }}>
+        <div className={mode === "preview" ? "editor-pane is-hidden" : "editor-pane"} style={mode === "split" ? undefined : { flex: "1 1 auto", minWidth: 0 }}>
           {tableHit && mode !== "preview" ? (
             <TableHandles
               onRow={(where) => format((view) => insertTableRow(view, where))}
@@ -1468,7 +1471,7 @@ export function AppShell() {
           <div className="editor-host" ref={editorHost} />
         </div>
         {mode === "split" ? <div className="splitter" onPointerDown={(event) => dragRatio(event, setPreviewRatio)} /> : null}
-        <div className={mode === "source" ? "preview-wrap is-hidden" : "preview-wrap"} style={{ flex: mode === "split" ? previewRatio : 1, minWidth: mode === "source" ? 0 : 280 }}>
+        <div className={mode === "source" ? "preview-wrap is-hidden" : "preview-wrap"} style={mode === "split" ? undefined : { flex: "1 1 auto", minWidth: 0 }}>
           {outline ? (
             <button
               type="button"

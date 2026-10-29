@@ -1,9 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import katexCss from "katex/dist/katex.min.css?raw";
-import katexJs from "katex/dist/katex.min.js?raw";
-import { t, useLocale } from "../i18n";
-import runtime from "./shell-runtime.js?raw";
-import { assertClassicBundle, previewMessages, shellHtml } from "./shell";
+import katexSrc from "katex/dist/katex.min.js?url";
+import { useLocale } from "../i18n";
+import runtimeSrc from "./shell-runtime.js?url";
+import mermaidAsset from "mermaid/dist/mermaid.min.js?url";
+import { previewMessages, shellHtml } from "./shell";
 import { containsDiagram, type PreviewPayload } from "./types";
 import type { ShellAppearance } from "../styles/appearance";
 
@@ -22,12 +23,29 @@ type Props = {
   title: string;
 };
 
+function assetUrl(url: string): string {
+  return new URL(url, window.location.href).href;
+}
+
+function readNonce(selector: string): string {
+  const el = document.querySelector(selector);
+  if (!el) {
+    return "";
+  }
+  const value = (el as HTMLElement & { nonce?: string }).nonce || el.getAttribute("nonce") || "";
+  return /^[A-Za-z0-9+/=_-]{1,128}$/.test(value) ? value : "";
+}
+
 export const PreviewPane = forwardRef<PreviewHandle, Props>(function PreviewPane(
   { onVisible, remoteImages, appearance, title },
   ref,
 ) {
   const frame = useRef<HTMLIFrameElement>(null);
   const pending = useRef<PreviewPayload | null>(null);
+  const pendingHighlight = useRef<number | null | undefined>(undefined);
+  const pendingScroll = useRef<{ renderGen: number; id: number; ratio: number } | null>(null);
+  const shellReady = useRef(false);
+  const shellEpoch = useRef(0);
   const mermaidSource = useRef<string | null>(null);
   const onVisibleRef = useRef(onVisible);
   onVisibleRef.current = onVisible;
@@ -45,37 +63,61 @@ export const PreviewPane = forwardRef<PreviewHandle, Props>(function PreviewPane
     frame.current?.contentWindow?.postMessage(message, "*");
   }
 
-  function mount(extraMermaid?: string) {
-    const iframe = frame.current;
-    if (!iframe) {
+  function flushShell() {
+    if (!shellReady.current) {
       return;
     }
-    const html = shellHtml({
-      katexJs,
-      katexCss,
-      runtime,
-      mermaidJs: extraMermaid,
-      remoteImages: remoteRef.current,
-      appearance: appearanceRef.current,
-      lang: localeRef.current,
-      copy: previewMessages(localeRef.current),
-    });
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    iframe.onload = () => {
-      URL.revokeObjectURL(url);
-      const payload = pending.current;
-      if (!payload) {
-        return;
-      }
+    const payload = pending.current;
+    if (payload) {
+      post({
+        type: "configure",
+        remoteImages: remoteRef.current,
+        copy: previewMessages(localeRef.current),
+      });
       post({
         type: "render",
         render_gen: payload.render_gen,
         mode: payload.mode,
         blocks: payload.blocks,
       });
+    }
+    if (pendingHighlight.current !== undefined) {
+      post({ type: "highlight", id: pendingHighlight.current });
+    }
+    const scroll = pendingScroll.current;
+    if (scroll) {
+      post({ type: "scrollTo", render_gen: scroll.renderGen, id: scroll.id, ratio: scroll.ratio });
+    }
+  }
+
+  function mount(includeMermaid = false) {
+    const iframe = frame.current;
+    if (!iframe) {
+      return;
+    }
+    shellReady.current = false;
+    const token = shellEpoch.current + 1;
+    shellEpoch.current = token;
+    iframe.onload = () => {
+      shellReady.current = true;
+      flushShell();
     };
-    iframe.src = url;
+    iframe.srcdoc = shellHtml({
+      katexJs: "var katex = {};",
+      katexCss,
+      runtime: "var runtime = 1;",
+      mermaidSrc: includeMermaid ? assetUrl(mermaidAsset) : undefined,
+      remoteImages: remoteRef.current,
+      appearance: appearanceRef.current,
+      lang: localeRef.current,
+      copy: previewMessages(localeRef.current),
+      token,
+      scriptNonce: readNonce("script"),
+      styleNonce: readNonce("style"),
+      katexSrc: assetUrl(katexSrc),
+      runtimeSrc: assetUrl(runtimeSrc),
+      scriptOrigin: window.location.origin,
+    });
   }
 
   const appearanceKey = [
@@ -95,52 +137,18 @@ export const PreviewPane = forwardRef<PreviewHandle, Props>(function PreviewPane
   ].join("\n");
 
   useEffect(() => {
-    mount(mermaidSource.current ?? undefined);
-  }, [shellKey, remoteImages, appearanceKey, locale]);
-
-  useImperativeHandle(ref, () => ({
-    render(payload) {
-      pending.current = payload;
-      if (containsDiagram(payload.blocks) && !mermaidSource.current) {
-        void import("mermaid/dist/mermaid.min.js?raw")
-          .then((mod) => {
-            assertClassicBundle(mod.default, "mermaid.min.js");
-            mermaidSource.current = mod.default;
-            setNotice(null);
-            setShellKey((value) => value + 1);
-          })
-          .catch((error: unknown) => {
-            setNotice(error instanceof Error ? error.message : t("preview.mermaidBundle"));
-            post({
-              type: "render",
-              render_gen: payload.render_gen,
-              mode: payload.mode,
-              blocks: payload.blocks,
-            });
-          });
-        return;
-      }
-      post({
-        type: "render",
-        render_gen: payload.render_gen,
-        mode: payload.mode,
-        blocks: payload.blocks,
-      });
-    },
-    scrollTo(renderGen, id, ratio) {
-      post({ type: "scrollTo", render_gen: renderGen, id, ratio });
-    },
-    highlight(id) {
-      post({ type: "highlight", id });
-    },
-  }));
-
-  useEffect(() => {
     function onMessage(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow || event.origin !== "null") {
         return;
       }
-      const data = event.data as { type?: string; render_gen?: number; id?: number; ratio?: number };
+      const data = event.data as { type?: string; token?: number; render_gen?: number; id?: number; ratio?: number };
+      if (data?.type === "ready") {
+        if (data.token === shellEpoch.current) {
+          shellReady.current = true;
+          flushShell();
+        }
+        return;
+      }
       if (data?.type !== "visible" || data.render_gen === undefined || data.id === undefined) {
         return;
       }
@@ -149,6 +157,38 @@ export const PreviewPane = forwardRef<PreviewHandle, Props>(function PreviewPane
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
+
+  useEffect(() => {
+    mount(mermaidSource.current !== null);
+    return () => {
+      shellReady.current = false;
+    };
+  }, [shellKey, remoteImages, appearanceKey, locale]);
+
+  useImperativeHandle(ref, () => ({
+    render(payload) {
+      pending.current = payload;
+      if (containsDiagram(payload.blocks) && mermaidSource.current === null) {
+        mermaidSource.current = mermaidAsset;
+        setNotice(null);
+        setShellKey((value) => value + 1);
+        return;
+      }
+      flushShell();
+    },
+    scrollTo(renderGen, id, ratio) {
+      pendingScroll.current = { renderGen, id, ratio };
+      if (shellReady.current) {
+        post({ type: "scrollTo", render_gen: renderGen, id, ratio });
+      }
+    },
+    highlight(id) {
+      pendingHighlight.current = id;
+      if (shellReady.current) {
+        post({ type: "highlight", id });
+      }
+    },
+  }));
 
   return (
     <div className="preview-wrap">

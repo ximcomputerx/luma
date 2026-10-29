@@ -23,6 +23,7 @@ describe("preview shell", () => {
     expect(html).toContain("max-width: 40rem");
     expect(html).toContain("scrollbar-width: thin");
     expect(html).toContain("var lumaRemoteImages = false");
+    expect(html).toContain("var lumaShellToken = 0");
     expect(html).toContain("var lumaCopy =");
     expect(html).toContain('lang="en-US"');
     expect(html).not.toContain("allow-same-origin");
@@ -130,7 +131,57 @@ describe("shell DOM", () => {
     expect(html).not.toContain("allow-same-origin");
     expect(html).not.toContain("unsafe-eval");
     expect(paneSource).toContain('sandbox="allow-scripts"');
+    expect(paneSource).toContain("srcdoc");
     expect(paneSource).not.toContain("allow-same-origin");
+    expect(paneSource).not.toContain("createObjectURL");
+    expect(runtime).toContain('type: "ready"');
+    expect(paneSource).toContain('data?.type === "ready"');
+    const tokened = shellHtml({ katexJs: "var katex = {};", katexCss: "", runtime: "var runtime = 1;", token: 4 });
+    expect(tokened).toContain("var lumaShellToken = 4");
+    const hostile = shellHtml({
+      katexJs: "var katex = {};",
+      katexCss: "",
+      runtime: "var runtime = 1;",
+      token: Number.NaN,
+    });
+    expect(hostile).toContain("var lumaShellToken = 0");
+    expect(hostile).not.toContain("NaN");
+    const withNonce = shellHtml({
+      katexJs: "var katex = {};",
+      katexCss: "",
+      runtime: "var runtime = 1;",
+      scriptNonce: "abc123",
+      styleNonce: "styleNonce",
+    });
+    expect(withNonce).toContain('nonce="abc123"');
+    expect(withNonce).toContain('nonce="styleNonce"');
+    const badNonce = shellHtml({
+      katexJs: "var katex = {};",
+      katexCss: "",
+      runtime: "var runtime = 1;",
+      scriptNonce: "abc\"><script>",
+    });
+    expect(badNonce).not.toContain("nonce=");
+    const external = shellHtml({
+      katexJs: "var katex = {};",
+      katexCss: "",
+      runtime: "var runtime = 1;",
+      katexSrc: "http://tauri.localhost/assets/katex.min.js",
+      runtimeSrc: "http://tauri.localhost/assets/preview-runtime.js",
+      scriptOrigin: "http://tauri.localhost",
+    });
+    expect(external).toContain('src="http://tauri.localhost/assets/katex.min.js"');
+    expect(external).toContain('src="http://tauri.localhost/assets/preview-runtime.js"');
+    expect(external).toContain("script-src http://tauri.localhost");
+    expect(external).not.toContain("var runtime = 1;");
+    const badOrigin = shellHtml({
+      katexJs: "var katex = {};",
+      katexCss: "",
+      runtime: "var runtime = 1;",
+      scriptOrigin: "http://evil.example/owned",
+    });
+    expect(badOrigin).toContain("script-src 'unsafe-inline'");
+    expect(badOrigin).not.toContain("evil.example");
   });
 
   it("drops script, foreignObject, and javascript hrefs from mermaid svg", () => {

@@ -33,6 +33,31 @@ function serializeCopy(copy: PreviewCopy): string {
   return escapeScriptClose(JSON.stringify(copy).replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029"));
 }
 
+function scriptOrigin(value: string | undefined): string | undefined {
+  if (!value || !/^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+function nonceAttr(value: string | undefined): string {
+  if (!value || !/^[A-Za-z0-9+/=_-]{1,128}$/.test(value)) {
+    return "";
+  }
+  return ` nonce="${value}"`;
+}
+
+function shellToken(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    return 0;
+  }
+  return value;
+}
+
 function shellLang(locale: string | undefined): Locale {
   return locale === "zh-CN" ? "zh-CN" : "en-US";
 }
@@ -40,9 +65,11 @@ function shellLang(locale: string | undefined): Locale {
 const BASE_CSP =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; connect-src 'none'";
 
-function childCsp(remoteImages: boolean): string {
+function childCsp(remoteImages: boolean, scriptOrigin: string | undefined): string {
   const images = remoteImages ? "img-src data: https:" : "img-src data:";
-  return `${BASE_CSP}; ${images}`;
+  const scripts = scriptOrigin ? `script-src ${scriptOrigin}` : "script-src 'unsafe-inline'";
+  const base = BASE_CSP.replace("script-src 'unsafe-inline'", scripts);
+  return `${base}; ${images}`;
 }
 
 export function escapeScriptClose(source: string): string {
@@ -68,14 +95,25 @@ export function shellHtml(parts: {
   appearance?: ShellAppearance;
   lang?: string;
   copy?: PreviewCopy;
+  token?: number;
+  scriptNonce?: string;
+  styleNonce?: string;
+  katexSrc?: string;
+  runtimeSrc?: string;
+  mermaidSrc?: string;
+  scriptOrigin?: string;
 }): string {
   assertClassicBundle(parts.katexJs, "katex.min.js");
   if (parts.mermaidJs) {
     assertClassicBundle(parts.mermaidJs, "mermaid.min.js");
   }
-  const mermaid = parts.mermaidJs
-    ? `<script>${escapeScriptClose(parts.mermaidJs)}</script>`
-    : "";
+  const scriptNonce = nonceAttr(parts.scriptNonce);
+  const styleNonce = nonceAttr(parts.styleNonce);
+  const mermaid = parts.mermaidSrc
+    ? `<script src="${escapeAttr(parts.mermaidSrc)}"${scriptNonce}></script>`
+    : parts.mermaidJs
+      ? `<script${scriptNonce}>${escapeScriptClose(parts.mermaidJs)}</script>`
+      : "";
   const look = sanitizeAppearance(parts.appearance);
   const lang = shellLang(parts.lang);
   const copy = serializeCopy(parts.copy ?? previewMessages(lang));
@@ -83,9 +121,9 @@ export function shellHtml(parts: {
 <html lang="${lang}">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${childCsp(parts.remoteImages === true)}">
-<style>
-  body { margin: 0; padding: 56px 48px 96px; font: ${look.fontSize}px/${look.lineHeight} ${look.proseFont}; color: ${look.fg}; background: ${look.bg}; }
+<meta http-equiv="Content-Security-Policy" content="${childCsp(parts.remoteImages === true, scriptOrigin(parts.scriptOrigin))}">
+<style${styleNonce}>
+  body { margin: 0; padding: 32px 20px 80px; font: ${look.fontSize}px/${look.lineHeight} ${look.proseFont}; color: ${look.fg}; background: ${look.bg}; overflow-wrap: anywhere; }
   html { scrollbar-width: thin; scrollbar-color: transparent transparent; }
   html:hover { scrollbar-color: color-mix(in srgb, ${look.muted} 45%, transparent) transparent; }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -123,11 +161,12 @@ export function shellHtml(parts: {
 </head>
 <body>
 <div id="root"></div>
-<script>var lumaRemoteImages = ${parts.remoteImages === true};</script>
-<script>var lumaCopy = ${copy};</script>
-<script>${escapeScriptClose(parts.katexJs)}</script>
+${parts.katexSrc ? `<script src="${escapeAttr(parts.katexSrc)}"${scriptNonce}></script>` : `<script${scriptNonce}>var lumaRemoteImages = ${parts.remoteImages === true};</script>
+<script${scriptNonce}>var lumaShellToken = ${shellToken(parts.token)};</script>
+<script${scriptNonce}>var lumaCopy = ${copy};</script>
+<script${scriptNonce}>${escapeScriptClose(parts.katexJs)}</script>`}
 ${mermaid}
-<script>${escapeScriptClose(parts.runtime)}</script>
+${parts.runtimeSrc ? `<script src="${escapeAttr(parts.runtimeSrc)}"${scriptNonce}></script>` : `<script${scriptNonce}>${escapeScriptClose(parts.runtime)}</script>`}
 </body>
 </html>`;
 }
